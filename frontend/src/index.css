@@ -1361,9 +1361,13 @@ select { font-family: inherit; }
   position: absolute;
   top: 12px;
   left: 12px;
+  right: 12px;
   z-index: 1000;
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
 }
 
 .map-filter-group {
@@ -1374,6 +1378,7 @@ select { font-family: inherit; }
   padding: 4px;
   border-radius: 8px;
   border: 1px solid rgba(59, 130, 246, 0.2);
+  pointer-events: auto;
 }
 
 .map-filter-chip {
@@ -1513,40 +1518,84 @@ select { font-family: inherit; }
   flex-direction: column;
 }
 
-/* Floating Acrylic Legend */
+/* Floating Acrylic Legend — Docked Top-Right, Non-Overlapping */
 .routesense-glass-legend {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  z-index: 1000;
-  background: rgba(13, 21, 38, 0.88);
+  pointer-events: auto;
+  background: rgba(13, 21, 38, 0.92);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 10px;
-  padding: 10px 14px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  padding: 6px 12px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 .legend-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
+  font-weight: 500;
   color: #cbd5e1;
+  white-space: nowrap;
 }
 
 .legend-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
-.legend-dot.bus-route { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; }
-.legend-dot.bus-idle { background: #10b981; }
-.legend-dot.hazard-red { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.legend-dot.bus-route { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+.legend-dot.bus-idle { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
+.legend-dot.hazard-red { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.6); }
 .legend-dot.traffic-amber { background: #f59e0b; }
 .legend-dot.hex-cyan { background: #06b6d4; }
+
+.legend-close-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 10px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-left: 2px;
+}
+.legend-close-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.routesense-legend-pill-btn {
+  pointer-events: auto;
+  background: rgba(13, 21, 38, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.routesense-legend-pill-btn:hover {
+  color: #f8fafc;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(15, 23, 42, 0.95);
+}
 
 /* ── Screen 2: Fleet Tracking ──────────────────────────────────── */
 .fleet-main-split {

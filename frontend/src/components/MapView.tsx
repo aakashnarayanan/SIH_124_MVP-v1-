@@ -113,6 +113,7 @@ export default function MapView({
   onSelectDefect,
 }: MapViewProps) {
   const [activeFilter, setActiveFilter] = useState('All Routes')
+  const [legendOpen, setLegendOpen] = useState(true)
 
   // Filter valid vehicles and defects
   const validVehicles = useMemo(
@@ -140,7 +141,7 @@ export default function MapView({
 
   return (
     <div className="routesense-map-container">
-      {/* Top Floating Controls */}
+      {/* Top Floating Controls Bar */}
       <div className="map-top-bar">
         <div className="map-filter-group">
           {['All Routes', 'All Buses', 'All Events'].map(f => (
@@ -153,6 +154,49 @@ export default function MapView({
             </button>
           ))}
         </div>
+
+        {/* Legend Relocated to Top-Right Header (Non-overlapping) */}
+        {legendOpen ? (
+          <div className="routesense-glass-legend">
+            <div className="legend-row">
+              <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
+              <span>Bus (Active)</span>
+            </div>
+            <div className="legend-row">
+              <span className="legend-dot" style={{ background: '#10b981' }}></span>
+              <span>Bus (Idle)</span>
+            </div>
+            <div className="legend-row">
+              <span className="legend-dot hazard-red"></span>
+              <span>Pothole / Hazard</span>
+            </div>
+            {showHexOverlay && (
+              <div className="legend-row">
+                <span className="legend-dot hex-cyan"></span>
+                <span>High Traffic Zone</span>
+              </div>
+            )}
+            <button
+              type="button"
+              className="legend-close-btn"
+              onClick={() => setLegendOpen(false)}
+              title="Minimize Legend"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="routesense-legend-pill-btn"
+            onClick={() => setLegendOpen(true)}
+            title="Show Map Legend"
+          >
+            <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
+            <span className="legend-dot" style={{ background: '#10b981' }}></span>
+            <span>Legend</span>
+          </button>
+        )}
       </div>
 
       <MapContainer
@@ -289,17 +333,6 @@ export default function MapView({
 
         <MapFitter vehicles={validVehicles} defects={validDefects} />
       </MapContainer>
-
-      {/* Floating Legend */}
-      <div className="routesense-glass-legend">
-        <div className="legend-row"><span className="legend-dot" style={{ background: '#f59e0b' }}></span>Bus (Active)</div>
-        <div className="legend-row"><span className="legend-dot" style={{ background: '#06b6d4' }}></span>Bus (Secondary)</div>
-        <div className="legend-row"><span className="legend-dot hazard-red"></span>Pothole / Hazard</div>
-        <div className="legend-row"><span className="legend-dot traffic-amber"></span>High Confidence</div>
-        {showHexOverlay && (
-          <div className="legend-row"><span className="legend-dot hex-cyan"></span>High Traffic Zone</div>
-        )}
-      </div>
     </div>
   )
 }
