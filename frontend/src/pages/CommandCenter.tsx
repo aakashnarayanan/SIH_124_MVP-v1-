@@ -10,7 +10,6 @@ import React, { useState, useEffect } from 'react'
 import MapView from '../components/MapView'
 import {
   RecentEventsCard,
-  FleetSummaryCard,
   TrafficDensityCard,
 } from '../components/CommandCenterCards'
 import type { Vehicle, DefectMarker, AlertEvent, HealthInfo } from '../types'
@@ -75,7 +74,7 @@ export default function CommandCenter({
             <div className="metric-value-row">
               <span className="metric-big-num">{onlineBusCount}</span>
             </div>
-            <div className="metric-sub-note">60% of 20</div>
+            <div className="metric-sub-note">{onlineBusCount > 0 ? 'Active telemetry' : 'Awaiting transit node'}</div>
           </div>
           <div className="metric-icon-bubble green">
             <Bus size={22} />
@@ -88,7 +87,7 @@ export default function CommandCenter({
             <div className="metric-value-row">
               <span className="metric-big-num">{activeEventsCount}</span>
             </div>
-            <div className="metric-sub-note red">Today <span className="trend-arrow">▲</span> yesterday</div>
+            <div className="metric-sub-note red">Live detections</div>
           </div>
           <div className="metric-icon-bubble red">
             <Activity size={22} />
@@ -101,7 +100,7 @@ export default function CommandCenter({
             <div className="metric-value-row">
               <span className="metric-big-num">{roadHazardCount}</span>
             </div>
-            <div className="metric-sub-note amber">Today</div>
+            <div className="metric-sub-note amber">Confidence ≥ 70%</div>
           </div>
           <div className="metric-icon-bubble amber">
             <AlertTriangle size={22} />
@@ -112,9 +111,9 @@ export default function CommandCenter({
           <div className="metric-info-col">
             <div className="metric-title">High Traffic Zones</div>
             <div className="metric-value-row">
-              <span className="metric-big-num">{health?.h3_clusters || 4}</span>
+              <span className="metric-big-num">{health?.h3_clusters ?? 0}</span>
             </div>
-            <div className="metric-sub-note purple">Live</div>
+            <div className="metric-sub-note purple">Uber H3 clusters</div>
           </div>
           <div className="metric-icon-bubble purple">
             <Radio size={22} />
@@ -127,10 +126,9 @@ export default function CommandCenter({
         <MapView vehicles={vehicles} defects={defects} showHexOverlay={true} />
       </section>
 
-      {/* Bottom 3 Analytics Cards */}
-      <section className="routesense-bottom-cards-row">
+      {/* Bottom Analytics Cards (2 Balanced Panes) */}
+      <section className="command-bottom-cards-row">
         <RecentEventsCard defects={defects} />
-        <FleetSummaryCard vehicleCount={onlineBusCount} />
         <TrafficDensityCard />
       </section>
     </div>

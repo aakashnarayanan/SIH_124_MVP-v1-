@@ -1204,9 +1204,8 @@ select { font-family: inherit; }
   overflow: hidden;
 }
 
-.recent-events-card { flex: 1.2; }
-.fleet-summary-card { flex: 1; }
-.traffic-density-card { flex: 1.2; }
+.recent-events-card { flex: 1; }
+.traffic-density-card { flex: 1; }
 
 .card-header-bar {
   display: flex;
@@ -1742,66 +1741,50 @@ select { font-family: inherit; }
   color: white;
 }
 
-.station-progress-timeline {
+.telemetry-pipeline-strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: relative;
-  padding: 8px 0;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-top: 4px;
 }
 
-.station-timeline-line {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  top: 14px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  z-index: 1;
-}
-
-.station-timeline-line-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #38bdf8);
-}
-
-.timeline-station-node {
+.pipeline-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  z-index: 2;
-  position: relative;
+  gap: 2px;
 }
 
-.station-node-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #0d1526;
-  border: 2px solid #64748b;
+.pipeline-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #64748b;
 }
 
-.timeline-station-node.completed .station-node-dot {
-  border-color: #10b981;
-  background: #10b981;
-}
-
-.timeline-station-node.current .station-node-dot {
-  border-color: #38bdf8;
-  background: #38bdf8;
-  box-shadow: 0 0 10px #38bdf8;
-}
-
-.station-node-name {
+.pipeline-val {
   font-size: 11px;
   font-weight: 600;
-  color: #cbd5e1;
-  margin-top: 5px;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.station-node-time {
-  font-size: 9px;
-  color: #64748b;
+.pipeline-val.green {
+  color: #10b981;
+}
+
+.pipeline-val.cyan {
+  color: #38bdf8;
+}
+
+.pipeline-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Screen 3: AI Video Intelligence ───────────────────────────── */
@@ -1814,9 +1797,9 @@ select { font-family: inherit; }
 
 .video-top-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   align-items: stretch;
-  gap: 12px;
+  gap: 14px;
   padding: 0 24px 6px;
 }
 
@@ -1827,7 +1810,7 @@ select { font-family: inherit; }
 .video-side-panel {
   align-self: stretch;
   margin: 12px 0 6px;
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1836,24 +1819,36 @@ select { font-family: inherit; }
 
 .video-player-frame {
   width: 100%;
-  max-height: 320px;
+  aspect-ratio: 16 / 9;
+  max-height: 480px;
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dashcam-screen {
   position: relative;
   width: 100%;
-  height: 320px;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 480px;
   background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dashcam-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #000;
+  display: block;
 }
 
 .yolo-box {

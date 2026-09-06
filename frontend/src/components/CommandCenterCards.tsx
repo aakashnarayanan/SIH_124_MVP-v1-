@@ -7,9 +7,6 @@
 
 import React from 'react'
 import {
-  PieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
   AreaChart,
   Area,
@@ -58,53 +55,6 @@ export function RecentEventsCard({ defects }: { defects: DefectMarker[] }) {
   )
 }
 
-// ── 2. Fleet Summary Donut Chart ───────────────────────────────
-const FLEET_DONUT_DATA = [
-  { name: 'On Route',   value: 65, color: '#10b981' },
-  { name: 'In Transit', value: 20, color: '#3b82f6' },
-  { name: 'Idle',       value: 10, color: '#f59e0b' },
-  { name: 'Offline',    value: 5,  color: '#ef4444' },
-]
-
-export function FleetSummaryCard({ vehicleCount = 20 }: { vehicleCount?: number }) {
-  return (
-    <div className="routesense-card fleet-summary-card">
-      <div className="card-header-bar">
-        <span className="card-title">Fleet Summary</span>
-      </div>
-      <div className="donut-chart-wrapper">
-        <div className="donut-chart-container">
-          <ResponsiveContainer width={120} height={120}>
-            <PieChart>
-              <Pie
-                data={FLEET_DONUT_DATA}
-                innerRadius={38}
-                outerRadius={56}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {FLEET_DONUT_DATA.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="donut-center-label">
-            <span className="donut-number">1,842</span>
-            <span className="donut-sub">Total Buses</span>
-          </div>
-        </div>
-
-        <div className="donut-legend-col">
-          <div className="donut-legend-item"><span className="legend-dot green"></span>On Route (75%)</div>
-          <div className="donut-legend-item"><span className="legend-dot blue"></span>In Transit (17%)</div>
-          <div className="donut-legend-item"><span className="legend-dot amber"></span>Idle (5%)</div>
-          <div className="donut-legend-item"><span className="legend-dot red"></span>Offline (3%)</div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── 3. Live Traffic Density Area Chart ─────────────────────────
 const TRAFFIC_CURVE_DATA = [

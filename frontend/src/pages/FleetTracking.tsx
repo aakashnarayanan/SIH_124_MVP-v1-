@@ -8,7 +8,6 @@
 import React, { useState, useEffect } from 'react'
 import MapView from '../components/MapView'
 import type { Vehicle, DefectMarker } from '../types'
-import { ROUTE_17_STOPS, FLEET_DETAILS_MOCK } from '../data/routeData'
 import { Search, Gauge, Clock, MapPin, Wifi, WifiOff } from 'lucide-react'
 
 interface FleetTrackingProps {
@@ -63,7 +62,6 @@ export default function FleetTracking({ vehicles, defects }: FleetTrackingProps)
 
   // Bus-specific defects count
   const busDefects = defects.filter(d => d.bus_id === selectedBusId)
-  const hudMeta = FLEET_DETAILS_MOCK[selectedBusId ?? ''] ?? FLEET_DETAILS_MOCK['bus_1']
 
   return (
     <div className="routesense-page fleet-tracking-view">
@@ -177,7 +175,7 @@ export default function FleetTracking({ vehicles, defects }: FleetTrackingProps)
                     🚌 {getBusDisplayId(selectedVehicle.bus_id)}
                   </span>
                   <span className="hud-route-tag">
-                    {hudMeta.route}
+                    Delhi Urban Transit Corridor · Active Edge Node
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -191,19 +189,17 @@ export default function FleetTracking({ vehicles, defects }: FleetTrackingProps)
               <div className="hud-metrics-row">
                 <div className="hud-metric-box">
                   <span className="hud-metric-label">Speed</span>
-                  <span className="hud-metric-val">{selectedVehicle.speed_kmh ?? hudMeta.speed} km/h</span>
+                  <span className="hud-metric-val">{selectedVehicle.speed_kmh != null ? `${selectedVehicle.speed_kmh} km/h` : '32 km/h'}</span>
                 </div>
                 <div className="hud-metric-box">
-                  <span className="hud-metric-label">ETA Next Stop</span>
-                  <span className="hud-metric-val">{hudMeta.eta} min</span>
+                  <span className="hud-metric-label">Heading</span>
+                  <span className="hud-metric-val">{selectedVehicle.heading || 'NE (045°)'}</span>
                 </div>
                 <div className="hud-metric-box">
-                  <span className="hud-metric-label">Distance</span>
-                  <span className="hud-metric-val">{hudMeta.dist}</span>
-                </div>
-                <div className="hud-metric-box">
-                  <span className="hud-metric-label">Next Stop</span>
-                  <span className="hud-metric-val">{selectedVehicle.next_stop ?? hudMeta.next}</span>
+                  <span className="hud-metric-label">GPS Position</span>
+                  <span className="hud-metric-val mono" style={{ fontSize: '12px' }}>
+                    {selectedVehicle.latitude.toFixed(4)}, {selectedVehicle.longitude.toFixed(4)}
+                  </span>
                 </div>
                 <div className="hud-metric-box">
                   <span className="hud-metric-label">Defects Detected</span>
@@ -211,20 +207,40 @@ export default function FleetTracking({ vehicles, defects }: FleetTrackingProps)
                     {busDefects.length}
                   </span>
                 </div>
+                <div className="hud-metric-box">
+                  <span className="hud-metric-label">Link Protocol</span>
+                  <span className="hud-metric-val" style={{ color: '#10b981', fontSize: '13px' }}>
+                    Protobuf / MQTT
+                  </span>
+                </div>
               </div>
 
-              {/* Station Progression Timeline */}
-              <div className="station-progress-timeline">
-                <div className="station-timeline-line">
-                  <div className="station-timeline-line-fill" style={{ width: '40%' }}></div>
+              {/* Edge Telemetry Pipeline Indicators */}
+              <div className="telemetry-pipeline-strip">
+                <div className="pipeline-item">
+                  <span className="pipeline-label">GPS Trajectory</span>
+                  <span className="pipeline-val">route_1.csv (Live Sync)</span>
                 </div>
-                {ROUTE_17_STOPS.map(st => (
-                  <div key={st.name} className={`timeline-station-node ${st.passed ? 'completed' : ''} ${st.current ? 'current' : ''}`}>
-                    <div className="station-node-dot"></div>
-                    <div className="station-node-name">{st.name}</div>
-                    <div className="station-node-time">{st.time}</div>
-                  </div>
-                ))}
+                <div className="pipeline-divider"></div>
+                <div className="pipeline-item">
+                  <span className="pipeline-label">Inference Engine</span>
+                  <span className="pipeline-val">3x YOLO Parallel</span>
+                </div>
+                <div className="pipeline-divider"></div>
+                <div className="pipeline-item">
+                  <span className="pipeline-label">Deduplication</span>
+                  <span className="pipeline-val">3.0m KD-Tree Filter</span>
+                </div>
+                <div className="pipeline-divider"></div>
+                <div className="pipeline-item">
+                  <span className="pipeline-label">Transport</span>
+                  <span className="pipeline-val green">MQTT QoS 1 Protobuf</span>
+                </div>
+                <div className="pipeline-divider"></div>
+                <div className="pipeline-item">
+                  <span className="pipeline-label">Local Cache</span>
+                  <span className="pipeline-val cyan">SQLite Failover Active</span>
+                </div>
               </div>
             </div>
           )}

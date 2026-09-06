@@ -14,6 +14,7 @@ export interface Vehicle {
   next_stop?: string
   total_distance_km?: number
   status?: 'on_route' | 'in_transit' | 'idle' | 'offline'
+  heading?: string
   last_seen?: number // epoch ms
 }
 
