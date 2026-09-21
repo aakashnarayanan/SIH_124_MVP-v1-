@@ -12,9 +12,19 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { Upload, CheckCircle, Car, Bus, Truck, Bike, AlertCircle, Activity, Wifi, WifiOff } from 'lucide-react'
+import { Upload, CheckCircle, Car, Bus, Truck, Bike, AlertCircle, Activity, Wifi, WifiOff, Film } from 'lucide-react'
 import type { DefectMarker, AlertEvent, Vehicle } from '../types'
 import { formatObjectType, getSeverityColor, getSeverity, timeAgo } from '../types'
+
+interface EvidenceClip {
+  bus_id: string
+  filename: string
+  defect_id: string
+  timestamp_ms: number
+  size_bytes: number
+  url: string
+}
+
 
 interface VideoIntelligenceProps {
   defects: DefectMarker[]
@@ -38,6 +48,25 @@ export default function VideoIntelligence({ defects, vehicles, alerts, isConnect
   const [liveTime, setLiveTime] = useState('')
   const [timeline, setTimeline] = useState<TimePoint[]>([])
   const prevDefectCount = useRef(0)
+  const [clips, setClips] = useState<EvidenceClip[]>([])
+  const [selectedBus, setSelectedBus] = useState<string>('all')
+
+  // Poll for evidence clips every 5 seconds
+  useEffect(() => {
+    let mounted = true
+    const fetchClips = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/clips')
+        if (res.ok) {
+          const data = await res.json()
+          if (mounted && data.clips) setClips(data.clips.slice(0, 12))
+        }
+      } catch { /* offline */ }
+    }
+    fetchClips()
+    const interval = setInterval(fetchClips, 5000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
 
   useEffect(() => {
     const t = setInterval(() => setLiveTime(new Date().toLocaleTimeString('en-US', { hour12: true })), 1000)
@@ -130,16 +159,70 @@ export default function VideoIntelligence({ defects, vehicles, alerts, isConnect
       <div className="video-top-layout">
         {/* Annotated MJPEG feed produced by the edge node */}
         <div className="video-main-container">
+          {/* Multi-Bus Camera Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary, #94a3b8)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Film size={14} color="#60a5fa" /> LIVE CAMERA:
+            </span>
+            <button
+              onClick={() => setSelectedBus('all')}
+              style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: selectedBus === 'all' ? '#2563eb' : 'rgba(255,255,255,0.06)',
+                color: selectedBus === 'all' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                border: selectedBus === 'all' ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                transition: 'all 0.15s ease',
+              }}>
+              All / Auto
+            </button>
+            <button
+              onClick={() => setSelectedBus('bus_1')}
+              style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: selectedBus === 'bus_1' ? '#2563eb' : 'rgba(255,255,255,0.06)',
+                color: selectedBus === 'bus_1' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                border: selectedBus === 'bus_1' ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                transition: 'all 0.15s ease',
+              }}>
+              🚌 Bus 1 (Route 1)
+            </button>
+            <button
+              onClick={() => setSelectedBus('bus_2')}
+              style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: selectedBus === 'bus_2' ? '#2563eb' : 'rgba(255,255,255,0.06)',
+                color: selectedBus === 'bus_2' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                border: selectedBus === 'bus_2' ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                transition: 'all 0.15s ease',
+              }}>
+              🚌 Bus 2 (Route 2)
+            </button>
+            <button
+              onClick={() => setSelectedBus('bus_3')}
+              style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: selectedBus === 'bus_3' ? '#2563eb' : 'rgba(255,255,255,0.06)',
+                color: selectedBus === 'bus_3' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                border: selectedBus === 'bus_3' ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                transition: 'all 0.15s ease',
+              }}>
+              🚌 Bus 3 (test2.mp4)
+            </button>
+          </div>
+
           <div className="video-player-frame">
             <div className="dashcam-screen">
               <img
+                key={selectedBus}
                 className="dashcam-img"
-                src="/api/video/stream"
+                src={selectedBus === 'all' ? '/api/video/stream' : `/api/video/stream/${selectedBus}`}
                 alt="Live annotated dashcam stream with pothole detections"
               />
               <div className="video-controls-overlay">
                 <Activity size={15} color="#10b981" />
-                <span className="video-time-text">LIVE EDGE FEED · ANNOTATED POTHOLES</span>
+                <span className="video-time-text">
+                  LIVE EDGE FEED · {selectedBus === 'all' ? 'AUTO FEED' : selectedBus.toUpperCase()} · ANNOTATED POTHOLES
+                </span>
               </div>
             </div>
           </div>
@@ -352,6 +435,47 @@ export default function VideoIntelligence({ defects, vehicles, alerts, isConnect
             </div>
           )}
         </div>
+
+        {/* Card 6: Evidence Clips — captured by edge nodes on pothole detection */}
+        <div className="routesense-card" style={{ gridColumn: 'span 3' }}>
+          <div className="card-header-bar">
+            <span className="card-title">Evidence Clips</span>
+            <span style={{ fontSize: 10, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Film size={11} color="#10b981" />
+              {clips.length > 0 ? `${clips.length} clips captured by edge nodes` : 'Clips saved when potholes detected (MediaSyncRequest)'}
+            </span>
+          </div>
+          {clips.length > 0 ? (
+            <div className="clips-grid">
+              {clips.map(clip => (
+                <div key={clip.url} className="clip-card">
+                  <video
+                    src={`http://localhost:8000${clip.url}`}
+                    muted
+                    loop
+                    onMouseEnter={e => (e.target as HTMLVideoElement).play()}
+                    onMouseLeave={e => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
+                    style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', background: '#000' }}
+                  />
+                  <div className="clip-card-meta">
+                    <div className="clip-defect-id">{clip.defect_id.slice(0, 20)}…</div>
+                    <div className="clip-bus-badge">{clip.bus_id.toUpperCase()}</div>
+                    <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>
+                      {(clip.size_bytes / 1024).toFixed(0)} KB
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: '24px 0', textAlign: 'center', color: '#475569', fontSize: 12 }}>
+              <Film size={24} color="#1e293b" style={{ marginBottom: 8 }} />
+              <div>No clips yet — clips appear here when edge nodes detect potholes</div>
+              <div style={{ fontSize: 10, marginTop: 4, color: '#334155' }}>Hover over clips to preview video</div>
+            </div>
+          )}
+        </div>
+
         </div>
       </div>
     </div>

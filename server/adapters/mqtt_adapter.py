@@ -28,6 +28,7 @@ from config import (
     MQTT_QOS,
 )
 from domain.models import TelemetryReading
+from domain.ingress import sanitize_reading
 
 logger = logging.getLogger("MQTTAdapter")
 
@@ -109,6 +110,9 @@ class MQTTInboundAdapter:
             return
 
         reading = self._parse_telemetry(payload)
+        if not reading:
+            return
+        reading = sanitize_reading(reading)
         if reading and self._on_telemetry:
             self._on_telemetry(reading)
 

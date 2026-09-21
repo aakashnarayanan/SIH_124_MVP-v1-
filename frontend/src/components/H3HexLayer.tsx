@@ -1,51 +1,59 @@
 /**
  * H3HexLayer — renders H3 hexagonal density cells as Leaflet Polygon overlays
- * Called by MapView with a map of h3_index → defect count
+ * Renders server-authoritative H3 boundaries so map and backend metrics agree.
+ * Coloring is based on the combined intensity of traffic observations AND defect reports
+ * so hexes appear even when buses report only potholes (no traffic_density detections).
  */
 
 import { Polygon, Tooltip } from 'react-leaflet'
-import { cellToBoundary } from 'h3-js'
 import type { LatLngExpression } from 'leaflet'
+import type { H3Cell } from '../types'
 
 interface H3HexLayerProps {
-  /** h3_index → count of defects in that cell */
-  densityMap: Map<string, number>
+  cells: H3Cell[]
 }
 
-function getHexColor(count: number): { color: string; fill: string; opacity: number } {
-  if (count >= 5) return { color: '#ef4444', fill: '#ef4444', opacity: 0.55 }
-  if (count >= 3) return { color: '#f97316', fill: '#f97316', opacity: 0.45 }
-  if (count >= 2) return { color: '#f59e0b', fill: '#f59e0b', opacity: 0.35 }
-  return { color: '#06b6d4', fill: '#06b6d4', opacity: 0.25 }
+function getHexColor(score: number): { color: string; fill: string; opacity: number } {
+  if (score >= 5) return { color: '#ef4444', fill: '#ef4444', opacity: 0.55 }
+  if (score >= 3) return { color: '#f97316', fill: '#f97316', opacity: 0.45 }
+  if (score >= 2) return { color: '#f59e0b', fill: '#f59e0b', opacity: 0.38 }
+  if (score >= 1) return { color: '#06b6d4', fill: '#06b6d4', opacity: 0.28 }
+  return { color: '#10b981', fill: '#10b981', opacity: 0.20 }
 }
 
-function H3HexLayer({ densityMap }: H3HexLayerProps) {
-  if (densityMap.size === 0) return null
+function H3HexLayer({ cells }: H3HexLayerProps) {
+  if (cells.length === 0) return null
 
   return (
     <>
-      {Array.from(densityMap.entries()).map(([h3Index, count]) => {
+      {cells.map(cell => {
         try {
-          // cellToBoundary returns [lat, lng][] — already correct for Leaflet
-          const boundary = cellToBoundary(h3Index) as [number, number][]
-          const positions: LatLngExpression[] = boundary.map(([lat, lng]) => [lat, lng])
-          const { color, fill, opacity } = getHexColor(count)
+          const traffic = cell.traffic_count ?? cell.count ?? 0
+          const defects = cell.unique_defects ?? cell.defect_reports ?? 0
+          // Use max of traffic and defects so pothole-only buses still light up hexes
+          const score = Math.max(traffic, defects, cell.count ?? 0)
+          const positions: LatLngExpression[] = cell.coordinates.map(([lat, lng]) => [lat, lng])
+          const { color, fill, opacity } = getHexColor(score)
 
           return (
             <Polygon
-              key={h3Index}
+              key={cell.h3_index}
               positions={positions}
               pathOptions={{
                 color,
                 fillColor: fill,
                 fillOpacity: opacity,
-                weight: 1,
-                opacity: 0.8,
+                weight: 1.5,
+                opacity: 0.85,
               }}
             >
               <Tooltip sticky>
                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12 }}>
-                  <strong>{count} defect{count !== 1 ? 's' : ''}</strong> in zone
+                  <div><strong>{traffic}</strong> traffic observations</div>
+                  <div><strong>{defects}</strong> unique defect{defects !== 1 ? 's' : ''}</div>
+                  <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
+                    H3: {cell.h3_index.slice(0, 12)}…
+                  </div>
                 </div>
               </Tooltip>
             </Polygon>
@@ -59,3 +67,4 @@ function H3HexLayer({ densityMap }: H3HexLayerProps) {
 }
 
 export default H3HexLayer
+

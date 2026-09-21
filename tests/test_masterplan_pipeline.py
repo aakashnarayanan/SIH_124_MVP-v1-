@@ -7,6 +7,9 @@ Tests:
   3. Server KD-Tree 3-Meter deduplication (assert repeat within 2m merges, 10m creates new)
   4. H3 hexagonal cell mapping
   5. Edge MAPE-K Loop (Day vs Night mode adaptation)
+  6. Server MAPE H3 sliding-window expiry and metric aggregation
+  7. KD-Tree temporal window expiry (stale marker purge)
+  8. Edge EvidenceClipBuffer local MP4 generation on MediaSyncRequest
 """
 
 import sys
@@ -157,6 +160,154 @@ def test_edge_mape_k_loop():
     print("  [OK] Low light (lux < 25) dynamically triggered Night Mode adaptation.")
 
 
+def test_ingress_sanitizer():
+    print("Testing MQTT ingress sanitiser...")
+    from server.domain.ingress import sanitize_reading
+
+    ok = TelemetryReading(
+        bus_id=" bus_1 ",
+        latitude=28.63,
+        longitude=77.21,
+        object_type="pothole",
+        confidence=0.8,
+        timestamp_ms=1,
+        vehicle_count=3,
+    )
+    cleaned = sanitize_reading(ok)
+    assert cleaned is not None
+    assert cleaned.bus_id == "bus_1"
+    assert sanitize_reading(TelemetryReading(
+        bus_id="bus_1", latitude=91, longitude=77, object_type="pothole",
+        confidence=0.5, timestamp_ms=1,
+    )) is None
+    assert sanitize_reading(TelemetryReading(
+        bus_id="bus_1", latitude=28, longitude=77, object_type="pothole",
+        confidence=1.5, timestamp_ms=1,
+    )) is None
+    print("  [OK] Valid packets pass; out-of-range lat/confidence are dropped.")
+
+
+def test_mape_h3_sliding_window():
+    """Verify ServerMAPEPlugin sliding-window expiry and metric aggregation."""
+    print("Testing Server MAPE H3 sliding-window expiry and aggregation...")
+    import sys as _sys
+    import os as _os
+    _sys.path.insert(0, _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", "server")))
+    from server.plugins.mape_plugin import ServerMAPEPlugin
+    from server.domain.models import DefectMarker as _DefectMarker
+
+    # Use a 2-second window so we can test expiry without sleeping
+    plugin = ServerMAPEPlugin(h3_resolution=9, window_seconds=2)
+    t0_ms = 1_000_000
+
+    r1 = TelemetryReading(
+        bus_id="bus_1", latitude=28.6315, longitude=77.2167,
+        object_type="pothole", confidence=0.85, timestamp_ms=t0_ms, vehicle_count=4,
+    )
+    m1 = _DefectMarker(
+        defect_id="def_1", latitude=28.6315, longitude=77.2167,
+        object_type="pothole", confidence=0.85, sighting_count=1,
+        first_seen_ms=t0_ms, last_seen_ms=t0_ms,
+    )
+
+    plugin.on_telemetry(r1)
+    plugin.on_defect_new(m1, r1)
+
+    # Corroborating reading within active window
+    r2 = TelemetryReading(
+        bus_id="bus_2", latitude=28.6315, longitude=77.2167,
+        object_type="pothole", confidence=0.90, timestamp_ms=t0_ms + 1000, vehicle_count=2,
+    )
+    plugin.on_telemetry(r2)
+    plugin.on_defect_updated(m1, r2)
+
+    # Verify aggregation at t0 + 1s (still within 2s window)
+    cells = plugin.get_h3_cells(now_ms=t0_ms + 1000)
+    assert len(cells) == 1, f"Expected 1 active cell, got {len(cells)}"
+    cell_data = list(cells.values())[0]
+    assert cell_data["traffic_count"] == 6, f"Expected traffic_count=6 (4+2), got {cell_data['traffic_count']}"
+    assert cell_data["defect_reports"] == 2, f"Expected defect_reports=2, got {cell_data['defect_reports']}"
+    assert cell_data["unique_defects"] == 1, f"Expected unique_defects=1, got {cell_data['unique_defects']}"
+    print("  [OK] Aggregation: traffic_count=6, defect_reports=2, unique_defects=1.")
+
+    # Advance well past the 2s window so both events (t0_ms and t0_ms+1000) are
+    # strictly older than cutoff (now_ms - window_ms = t0+4000 - 2000 = t0+2000).
+    # The expiry guard is `timestamp < cutoff` (strictly less than), so we need
+    # the newest event (t0_ms+1000) to satisfy 1000 < 2000 — hence now_ms = t0+4000.
+    expired_cells = plugin.get_h3_cells(now_ms=t0_ms + 4000)
+    assert len(expired_cells) == 0, f"Expected 0 cells after window expiry, got {len(expired_cells)}"
+    print("  [OK] Aggregation counts matched; expired cells purged past window.")
+
+
+def test_kdtree_window_expiry():
+    """Verify SpatialDeduplicationEngine purges markers older than the window."""
+    print("Testing KD-Tree temporal window expiry...")
+    from server.domain.deduplication import SpatialDeduplicationEngine as _SDE
+
+    dedup = _SDE(radius_meters=3.0, window_seconds=2)
+    t0_ms = 1_000_000
+
+    r1 = TelemetryReading(
+        bus_id="bus_1", latitude=28.631500, longitude=77.216700,
+        object_type="pothole", confidence=0.80, timestamp_ms=t0_ms,
+    )
+    action1, m1 = dedup.process(r1)
+    assert action1 == "new", f"Expected 'new', got '{action1}'"
+    assert dedup.get_marker_count() == 1
+    print(f"  [OK] Initial marker registered: {m1.defect_id[:8]}..")
+
+    # Same location but arrives after window cutoff (t0 + 3s > 2s window)
+    r2 = TelemetryReading(
+        bus_id="bus_2", latitude=28.631500, longitude=77.216700,
+        object_type="pothole", confidence=0.85, timestamp_ms=t0_ms + 3000,
+    )
+    action2, m2 = dedup.process(r2)
+    assert action2 == "new", f"Stale marker must not merge — expected 'new', got '{action2}'"
+    assert m2.defect_id != m1.defect_id, "Re-instantiated marker must have a fresh defect_id"
+    assert dedup.get_marker_count() == 1, (
+        f"Purged stale marker must be removed — expected count=1, got {dedup.get_marker_count()}"
+    )
+    print("  [OK] Stale markers purged and re-instantiated outside window.")
+
+
+def test_evidence_clip_buffer():
+    """Verify EvidenceClipBuffer captures frames and exports a local MP4 on request_clip()."""
+    print("Testing Edge EvidenceClipBuffer local MP4 generation...")
+    import tempfile
+    import shutil
+    from pathlib import Path
+    from edge.evidence import EvidenceClipBuffer
+
+    temp_dir = Path(tempfile.mkdtemp(prefix="suradak_test_evidence_"))
+    try:
+        saved_clips: list = []
+        buf = EvidenceClipBuffer(
+            output_dir=temp_dir,
+            fps=10.0,
+            retention_seconds=3.0,
+            on_complete=lambda p: saved_clips.append(p),
+        )
+
+        dummy_frame = np.zeros((120, 160, 3), dtype=np.uint8)
+        # Push 15 frames (~1.5 s of simulated footage at 10 fps)
+        for i in range(15):
+            buf.add_frame(raw=dummy_frame, annotated=dummy_frame, captured_at=float(i) * 0.1)
+
+        assert buf.frame_count == 15, f"Expected 15 buffered frames, got {buf.frame_count}"
+
+        ok = buf.request_clip(defect_id="test_pothole_42", duration_seconds=1)
+        assert ok is True, "request_clip() must return True when buffer is non-empty"
+
+        buf.stop()  # Blocks until the writer thread flushes all pending jobs
+
+        assert len(saved_clips) == 1, f"Expected 1 saved clip, got {len(saved_clips)}"
+        assert saved_clips[0].exists(), f"Clip file not found: {saved_clips[0]}"
+        assert saved_clips[0].stat().st_size > 0, "Clip file must be non-empty"
+        print(f"  [OK] Evidence MP4 successfully captured and flushed: {saved_clips[0].name}")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("RUNNING MASTER PLAN PIPELINE TESTS")
@@ -165,6 +316,10 @@ if __name__ == "__main__":
     test_edge_sqlite_circuit_breaker()
     test_kdtree_deduplication()
     test_edge_mape_k_loop()
+    test_ingress_sanitizer()
+    test_mape_h3_sliding_window()
+    test_kdtree_window_expiry()
+    test_evidence_clip_buffer()
     print("=" * 60)
-    print("[SUCCESS] ALL MASTER PLAN TESTS PASSED!")
+    print("[SUCCESS] ALL MASTER PLAN TESTS PASSED! (8/8)")
     print("=" * 60)

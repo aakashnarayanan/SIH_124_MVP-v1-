@@ -1,0 +1,20 @@
+# Edge Client Dependencies — SURADAK Urban AI Fleet Intelligence
+# Server-side packages (FastAPI, h3, uvicorn) are NOT needed here.
+# Only the edge processing stack is required.
+
+# Computer Vision & AI
+opencv-python>=4.8.0
+numpy>=1.24.0
+ultralytics>=8.0.0
+
+# MQTT Transport
+paho-mqtt>=1.6.1
+
+# Protobuf Serialization
+protobuf>=4.24.0
+
+# Spatial Math (KD-Tree used in dedup engine)
+scipy>=1.11.0
+
+# HTTP frame upload (for --demo-stream-frames mode only)
+requests>=2.31.0

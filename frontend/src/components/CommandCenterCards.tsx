@@ -14,8 +14,8 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts'
-import type { DefectMarker } from '../types'
-import { formatObjectType, getSeverityColor, getSeverity } from '../types'
+import type { DefectMarker, H3Cell } from '../types'
+import { formatObjectType, getSeverityColor, getSeverity, formatTime } from '../types'
 
 // ── 1. Recent Events Card ──────────────────────────────────────
 export function RecentEventsCard({ defects }: { defects: DefectMarker[] }) {

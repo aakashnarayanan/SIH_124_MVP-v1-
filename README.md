@@ -175,6 +175,16 @@ cd ..
 
 ### Step 2: Run the System (4 Terminal Setup)
 
+#### Recommended broker option: Eclipse Mosquitto in Docker
+
+For a repeatable broker environment, start Eclipse Mosquitto from the repository root:
+
+```powershell
+docker compose -f docker-compose.mqtt.yml up -d
+```
+
+The legacy `python mosquitto/broker.py` option below remains useful when Docker is unavailable. Both options listen on port `1883`; run only one of them at a time.
+
 Open **4 PowerShell terminal windows** from the project root directory (`SIH_PROJECT/`):
 
 #### **Terminal 1: MQTT Telemetry Broker**
@@ -282,7 +292,8 @@ SIH_PROJECT/
 │   │   │                           #  5. Analytics (Severity breakdown donuts + trends)
 │   │   │                           #  6. Settings (System configuration & unit toggles)
 │   │   ├── App.tsx                 # Root router & global state orchestrator
-│   │   ├── index.css               # Complete Midnight-Neon design system
+│   │   ├── index.css               # Complete Midnight-Neon design system (dark + light mode)
+│   │   ├── theme.tsx               # [NEW] ThemeProvider + useTheme hook
 │   │   └── types.ts                # Master TypeScript schemas
 │   ├── package.json
 │   └── vite.config.ts              # Vite configuration with backend proxy
@@ -295,6 +306,22 @@ SIH_PROJECT/
 │   ├── broker.py                   # Zero-install pure-Python broker for instant local testing
 │   └── config/                     # Mosquitto server configuration
 │
+├── docs/                           # [NEW] Engineering documentation
+│   ├── DEVIATION_REMEDIATION_LOG.md   # Full session-by-session engineering log
+│   ├── MASTER_PLAN_DEVIATION_ASSESSMENT.md  # Fidelity assessment vs master plan
+│   └── HOW_TO_RUN_DEMO.md         # Complete demo startup & verification guide
+│
+├── edge_client/                    # [NEW] Portable edge node for friend's laptop
+│   ├── run.py                      # Main launcher (reads config.env)
+│   ├── config.env                  # Set SERVER_IP= to server laptop's IP
+│   ├── SETUP.bat / START.bat       # Windows one-click setup & start
+│   ├── start.sh                    # Linux/macOS start
+│   ├── assets/                     # Place dashcam video here
+│   └── gps_tracks/                 # Routes 1-5 CSV files
+│
+├── exec.py                         # [NEW] 1-click launcher for all 6 demo components
+├── HOW_TO_RUN_DEMO.md              # Quick access demo guide (also in docs/)
+├── simulate_chaos.py               # [NEW] Multi-bus chaos simulation script
 ├── main.py                         # Root CLI launcher for edge execution
 ├── requirements.txt                # Global Python dependencies
 └── README.md                       # Master project documentation
@@ -302,5 +329,47 @@ SIH_PROJECT/
 
 ---
 
-*Developed for **Smart India Hackathon (SIH)**.*
+## 📅 Changelog
 
+### Sessions 2 & 3 — 2026-09-21 · SIH MVP Polishing
+
+#### New: Multi-Bus Demo Orchestration
+- `exec.py`: One command launches all 6 components (MQTT broker, FastAPI server, 3 edge nodes, Vite frontend) each in a separate console window.
+- `python exec.py` → then open `http://localhost:5173`
+
+#### New: Circular GPS Routes (Buses now loop indefinitely)
+| Bus | Route | Location |
+|---|---|---|
+| bus_1 | route_1.csv | Connaught Place ring, Delhi (~890m radius) |
+| bus_2 | route_2.csv | India Gate loop, Delhi (~1110m radius) |
+| bus_3 | route_3.csv | Pragati Maidan loop, Delhi (~850m radius) |
+
+#### Fixed: Evidence Clips — Black Screen (H.264 AVC1)
+- Root cause: OpenCV `mp4v` (MPEG-4 Part 2) is not supported natively by HTML5 `<video>`.
+- Fix: Cisco OpenH264 DLL downloaded; `edge/evidence.py` now writes `avc1` H.264 clips.
+- Evidence clips now play directly in the browser without any plugins.
+
+#### New: Multi-Bus Live Camera Switcher
+- Dashboard Video Intelligence page: click **Bus 1 / Bus 2 / Bus 3 (test2.mp4)** buttons to switch the live MJPEG feed between buses in real time.
+- Server tracks a per-bus frame buffer (`bus_video_frames[bus_id]`) and exposes `/api/video/stream/{bus_id}`.
+
+#### New: Dark / Light Mode
+- Click the moon/sun icon in the sidebar to switch. Preference is saved in `localStorage`.
+
+#### New: Portable Edge Client (`edge_client/`)
+- Zip and send `edge_client/` to a friend. They edit `config.env`:
+  ```
+  SERVER_IP=<your laptop IP>
+  BUS_ID=bus_4
+  ```
+  Double-click `SETUP.bat` then `START.bat`. Their bus immediately appears on your dashboard.
+
+#### Tests: 8/8 Passing
+```
+python tests/test_masterplan_pipeline.py
+→ [SUCCESS] ALL MASTER PLAN TESTS PASSED! (8/8)
+```
+
+---
+
+*Developed for **Smart India Hackathon (SIH)**.*

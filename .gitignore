@@ -16,8 +16,28 @@ env/
 # YOLOv8 model weights (allow edge models for out-of-the-box execution)
 !edge/models/*.pt
 
-# Video files (allow sample dashcam videos)
+# Video files (allow sample dashcam videos in edge/assets only)
 !edge/assets/*.mp4
+# Do NOT commit edge_client sample videos (large; user provides their own)
+edge_client/assets/*.mp4
+edge_client/assets/*.avi
+edge_client/assets/*.mov
+
+# Evidence clips generated at runtime — never commit
+edge/evidence_clips/**/*.mp4
+edge/evidence_clips/**/*.avi
+# Keep the folder structure (empty bus_1/bus_2/bus_3 dirs)
+!edge/evidence_clips/bus_1/.gitkeep
+!edge/evidence_clips/bus_2/.gitkeep
+!edge/evidence_clips/bus_3/.gitkeep
+
+# Edge SQLite telemetry cache databases (runtime-generated)
+edge/storage/*.db
+edge/storage/test_*.db
+
+# OpenH264 DLL (runtime binary — downloaded automatically by setup; not for repo)
+openh264-2.5.0-win64.dll
+openh264*.dll
 
 # Environment variables
 .env
@@ -57,3 +77,7 @@ mosquitto/log/
 # Protobuf generated files
 # (keep proto/telemetry_pb2.py so repo works out-of-the-box without protoc compiler)
 !proto/telemetry_pb2.py
+
+# Test artifacts
+edge/storage/test_circuit_breaker.db
+tests/test_evidence_clips/

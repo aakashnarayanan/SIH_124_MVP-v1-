@@ -12,7 +12,7 @@ import {
   RecentEventsCard,
   TrafficDensityCard,
 } from '../components/CommandCenterCards'
-import type { Vehicle, DefectMarker, AlertEvent, HealthInfo } from '../types'
+import type { Vehicle, DefectMarker, AlertEvent, HealthInfo, H3Cell } from '../types'
 import { Bus, Activity, AlertTriangle, Radio } from 'lucide-react'
 
 interface CommandCenterProps {
@@ -21,6 +21,8 @@ interface CommandCenterProps {
   alerts: AlertEvent[]
   health: HealthInfo | null
   isConnected: boolean
+  isLiveData: boolean
+  h3Cells: H3Cell[]
   onClearAlerts?: () => void
 }
 
@@ -28,7 +30,8 @@ export default function CommandCenter({
   vehicles,
   defects,
   health,
-  isConnected,
+  isLiveData,
+  h3Cells,
 }: CommandCenterProps) {
   const [currentTime, setCurrentTime] = useState('')
 
@@ -42,9 +45,10 @@ export default function CommandCenter({
     return () => clearInterval(timer)
   }, [])
 
-  const onlineBusCount = vehicles.length > 0 ? vehicles.length : 12
-  const activeEventsCount = defects.length > 0 ? defects.length : 8
-  const roadHazardCount = defects.filter(d => d.confidence >= 0.7).length || 3
+  const onlineBusCount = vehicles.length
+  const activeEventsCount = defects.length
+  const roadHazardCount = defects.filter(d => d.confidence >= 0.7).length
+  const h3ClusterCount = health?.h3_clusters ?? h3Cells.length
 
   return (
     <div className="routesense-page command-center-view">
@@ -56,9 +60,9 @@ export default function CommandCenter({
         </div>
 
         <div className="header-right-meta">
-          <div className="live-status-chip">
-            <span className="live-dot-green"></span>
-            <span className="live-text">{isConnected ? 'LIVE' : 'SIMULATION'}</span>
+          <div className={`live-status-chip ${isLiveData ? '' : 'presentation'}`}>
+            <span className={isLiveData ? 'live-dot-green' : 'live-dot-amber'}></span>
+            <span className="live-text">{isLiveData ? 'LIVE' : 'PRESENTATION'}</span>
           </div>
           <div className="live-clock-text">{currentTime || '10:42:18 AM'}</div>
           <div className="header-icon-btn">🔔</div>
@@ -111,7 +115,7 @@ export default function CommandCenter({
           <div className="metric-info-col">
             <div className="metric-title">High Traffic Zones</div>
             <div className="metric-value-row">
-              <span className="metric-big-num">{health?.h3_clusters ?? 0}</span>
+              <span className="metric-big-num">{h3ClusterCount}</span>
             </div>
             <div className="metric-sub-note purple">Uber H3 clusters</div>
           </div>
@@ -123,13 +127,13 @@ export default function CommandCenter({
 
       {/* Central Map Canvas */}
       <section className="routesense-map-section">
-        <MapView vehicles={vehicles} defects={defects} showHexOverlay={true} />
+        <MapView vehicles={vehicles} defects={defects} h3Cells={h3Cells} showHexOverlay={true} />
       </section>
 
       {/* Bottom Analytics Cards (2 Balanced Panes) */}
       <section className="command-bottom-cards-row">
         <RecentEventsCard defects={defects} />
-        <TrafficDensityCard />
+        <TrafficDensityCard cells={h3Cells} />
       </section>
     </div>
   )

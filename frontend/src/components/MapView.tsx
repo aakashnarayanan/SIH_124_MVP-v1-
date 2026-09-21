@@ -12,9 +12,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { latLngToCell } from 'h3-js'
 import H3HexLayer from './H3HexLayer'
-import type { Vehicle, DefectMarker } from '../types'
+import type { Vehicle, DefectMarker, H3Cell } from '../types'
 import { getSeverity, getSeverityColor, formatObjectType, formatTime } from '../types'
 import { ROUTE_17_WAYPOINTS } from '../data/routeData'
 
@@ -95,6 +94,7 @@ function MapFitter({ vehicles, defects }: { vehicles: Vehicle[]; defects: Defect
 interface MapViewProps {
   vehicles: Vehicle[]
   defects: DefectMarker[]
+  h3Cells?: H3Cell[]
   showHexOverlay?: boolean
   selectedBusId?: string | null
   onSelectBus?: (busId: string | null) => void
@@ -102,11 +102,10 @@ interface MapViewProps {
 }
 
 const MAP_CENTER: [number, number] = [28.6250, 77.2180]
-const H3_RESOLUTION = 9
-
 export default function MapView({
   vehicles,
   defects,
+  h3Cells = [],
   showHexOverlay = true,
   selectedBusId = null,
   onSelectBus,
@@ -125,19 +124,6 @@ export default function MapView({
     () => defects.filter(d => typeof d.latitude === 'number' && Number.isFinite(d.latitude) && Number.isFinite(d.longitude)),
     [defects]
   )
-
-  // H3 density overlay mapping
-  const densityMap = useMemo(() => {
-    const map = new Map<string, number>()
-    if (!showHexOverlay) return map
-    validDefects.forEach(d => {
-      try {
-        const cell = latLngToCell(d.latitude, d.longitude, H3_RESOLUTION)
-        map.set(cell, (map.get(cell) ?? 0) + 1)
-      } catch { /* skip */ }
-    })
-    return map
-  }, [validDefects, showHexOverlay])
 
   return (
     <div className="routesense-map-container">
@@ -250,7 +236,7 @@ export default function MapView({
         ))}
 
         {/* H3 Hexagonal Density Overlay */}
-        {showHexOverlay && <H3HexLayer densityMap={densityMap} />}
+        {showHexOverlay && <H3HexLayer cells={h3Cells} />}
 
         {/* ── Bus Pill Markers ── */}
         {validVehicles.map(vehicle => {

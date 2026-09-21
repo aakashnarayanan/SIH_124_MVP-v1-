@@ -41,6 +41,7 @@ class EdgeMQTTClient:
         self.on_command = on_command
 
         self._connected = False
+        self._simulated_offline = False
         self._lock = threading.Lock()
 
         client_uid = f"edge_{bus_id}_{os.getpid()}"
@@ -61,6 +62,22 @@ class EdgeMQTTClient:
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
 
+    def _check_simulation_triggers(self):
+        """Checks for chaos engineering trigger file to simulate network loss."""
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        trigger_paths = [
+            os.path.join(base, "edge", "storage", f"{self.bus_id}_offline.trigger"),
+            os.path.join(base, "edge_client", "storage", f"{self.bus_id}_offline.trigger"),
+        ]
+        should_be_offline = any(os.path.exists(p) for p in trigger_paths)
+        if should_be_offline and not self._simulated_offline:
+            self._simulated_offline = True
+            logger.warning(f"[{self.bus_id}] ⚠️ [CHAOS SIMULATION] Network link severed! Switching to SQLite offline buffer.")
+        elif not should_be_offline and self._simulated_offline:
+            self._simulated_offline = False
+            logger.info(f"[{self.bus_id}] 🌐 [CHAOS SIMULATION] Network restored! Bursting offline cache to broker...")
+            threading.Thread(target=self._burst_offline_cache, daemon=True).start()
+
     def start(self):
         logger.info(f"[{self.bus_id}] Connecting to MQTT broker at {self.broker_host}:{self.broker_port}...")
         try:
@@ -76,7 +93,8 @@ class EdgeMQTTClient:
 
     @property
     def is_connected(self) -> bool:
-        return self._connected
+        self._check_simulation_triggers()
+        return self._connected and not self._simulated_offline
 
     def publish_telemetry(
         self,
@@ -90,6 +108,7 @@ class EdgeMQTTClient:
         network_signal_db: float = -75.0,
         timestamp_ms: Optional[int] = None,
     ):
+        self._check_simulation_triggers()
         ts = timestamp_ms or int(time.time() * 1000)
 
         # 1. Build Protobuf message
@@ -109,7 +128,7 @@ class EdgeMQTTClient:
         topic = f"fleet/{self.bus_id}/telemetry"
 
         # 2. Transmit or buffer
-        if self._connected:
+        if self._connected and not self._simulated_offline:
             info = self._client.publish(topic, payload_bytes, qos=1)
             if info.rc == mqtt.MQTT_ERR_SUCCESS:
                 logger.debug(f"[{self.bus_id}] Published Protobuf packet ({len(payload_bytes)} bytes)")
@@ -117,11 +136,17 @@ class EdgeMQTTClient:
             else:
                 logger.warning(f"[{self.bus_id}] Publish failed (rc={info.rc}), buffering to SQLite...")
 
-        # If disconnected or publish returned error: buffer into SQLite circuit breaker
+        # If disconnected, simulated offline, or publish failed: buffer into SQLite circuit breaker
         self.cache.enqueue(topic, payload_bytes, ts)
         logger.info(f"[{self.bus_id}] 📴 Buffered offline Protobuf packet to SQLite (Queue: {self.cache.count()})")
 
-    def publish_heartbeat(self, yolo_fps: float, cpu_temp_c: float = 48.0, camera_ok: bool = True):
+    def publish_heartbeat(
+        self,
+        yolo_fps: float,
+        cpu_temp_c: float = 0.0,
+        ram_usage_mb: float = 0.0,
+        camera_ok: bool = True,
+    ):
         """Publishes edge health diagnostics as Protobuf HeartbeatPacket."""
         if not self._connected:
             return
@@ -129,7 +154,7 @@ class EdgeMQTTClient:
         heartbeat = telemetry_pb2.HeartbeatPacket()
         heartbeat.bus_id = self.bus_id
         heartbeat.cpu_temp_c = float(cpu_temp_c)
-        heartbeat.ram_usage_mb = 350.0
+        heartbeat.ram_usage_mb = float(ram_usage_mb)
         heartbeat.yolo_fps = float(yolo_fps)
         heartbeat.camera_ok = bool(camera_ok)
         heartbeat.timestamp_ms = int(time.time() * 1000)
@@ -160,12 +185,16 @@ class EdgeMQTTClient:
         try:
             req = telemetry_pb2.MediaSyncRequest()
             req.ParseFromString(msg.payload)
+            if req.bus_id and req.bus_id != self.bus_id:
+                logger.warning(f"[{self.bus_id}] Ignoring command addressed to {req.bus_id}")
+                return
             logger.info(f"[{self.bus_id}] 📹 Received MediaSyncRequest from server for defect: {req.defect_id}")
             if self.on_command:
+                # MQTT's network loop must not be blocked by evidence encoding.
                 self.on_command({
-                    "bus_id": req.bus_id,
+                    "bus_id": req.bus_id or self.bus_id,
                     "timestamp_ms": req.timestamp_ms,
-                    "clip_duration": req.clip_duration,
+                    "clip_duration": req.clip_duration or 2,
                     "defect_id": req.defect_id,
                 })
         except Exception as e:
@@ -178,21 +207,19 @@ class EdgeMQTTClient:
             return
 
         logger.info(f"[{self.bus_id}] 🚀 Reconnected! Bursting {pending} buffered offline packets to broker...")
-        while self._connected:
+        while self._connected and not self._simulated_offline:
             batch = self.cache.peek_batch(limit=25)
             if not batch:
                 break
 
             success_ids = []
             for record_id, topic, payload in batch:
-                if not self._connected:
+                if not self._connected or self._simulated_offline:
                     break
                 info = self._client.publish(topic, payload, qos=1)
-                info.wait_for_publish(timeout=2.0)
-                if info.is_published():
-                    success_ids.append(record_id)
+                success_ids.append(record_id)
 
             self.cache.remove_batch(success_ids)
-            time.sleep(0.05)  # Slight throttle to prevent network flooding
+            time.sleep(0.02)  # Fast burst spacing
 
-        logger.info(f"[{self.bus_id}] ✅ Offline cache burst upload complete.")
+        logger.info(f"[{self.bus_id}] ✅ Offline cache burst upload complete. Cache drained.")

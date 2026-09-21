@@ -1,18 +1,19 @@
 /**
  * UrbanEvents — Suradak Screen 4
- * Fixes:
- *  - Collapsible left defect panel (toggle show/hide)
- *  - Bus oscillation fixed by not rendering vehicles in this map (defects only)
+ * Shows AI-detected road incidents with:
+ *  - LIVE EVIDENCE badge for defects with evidence clips (clip_url set)
+ *  - PREVIEW badge for stock photo fallbacks
+ *  - Collapsible left defect panel
+ *  - Bus oscillation fixed (no vehicle markers on this map)
  *  - Live time in header
- *  - Scrollable events list
  */
 
 import React, { useState, useEffect } from 'react'
 import MapView from '../components/MapView'
 import type { DefectMarker, Vehicle, AlertEvent } from '../types'
 import { getIncidentPhoto } from '../data/mockPhotos'
-import { formatObjectType, getSeverityColor, getSeverity, timeAgo } from '../types'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { formatObjectType, getSeverity, timeAgo } from '../types'
+import { ChevronLeft, ChevronRight, X, Film, Image } from 'lucide-react'
 
 interface UrbanEventsProps {
   defects: DefectMarker[]
@@ -138,7 +139,8 @@ export default function UrbanEvents({ defects, vehicles, isConnected = true }: U
               </div>
             ) : filtered.map(d => {
               const isSelected = activeDefect?.defect_id === d.defect_id
-              const photoUrl = getIncidentPhoto(d.object_type)
+              const hasLiveClip = !!(d as any).clip_url
+              const photoUrl = hasLiveClip ? (d as any).clip_url : getIncidentPhoto(d.object_type)
               const sev = getSeverity(d.confidence)
               const color = SEV_COLORS[sev]
               const busLabel = d.bus_id ? d.bus_id.replace('bus_', 'BUS-10') : 'Unknown'
@@ -152,6 +154,16 @@ export default function UrbanEvents({ defects, vehicles, isConnected = true }: U
                 >
                   <div className="event-card-thumb-wrapper">
                     <img src={photoUrl} alt={d.object_type} className="event-photo-img" />
+                    {/* LIVE EVIDENCE vs STOCK PHOTO badge */}
+                    {hasLiveClip ? (
+                      <span className="live-evidence-badge">
+                        <Film size={8} /> LIVE CLIP
+                      </span>
+                    ) : (
+                      <span className="stock-photo-badge">
+                        <Image size={8} /> PREVIEW
+                      </span>
+                    )}
                     <span style={{
                       position: 'absolute', top: 4, right: 4,
                       background: `${color}cc`, color: '#fff', fontSize: 9, fontWeight: 700,
@@ -216,12 +228,34 @@ export default function UrbanEvents({ defects, vehicles, isConnected = true }: U
                 </div>
               </div>
 
-              <div className="detail-img-preview-box">
-                <img
-                  src={getIncidentPhoto(activeDefect.object_type)}
-                  alt="Incident Visual"
-                  className="detail-preview-img"
-                />
+              <div className="detail-img-preview-box" style={{ position: 'relative' }}>
+                {/* Show video player for live clips, img for stock photo */}
+                {(activeDefect as any).clip_url ? (
+                  <video
+                    src={(activeDefect as any).clip_url}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    style={{ width: '100%', borderRadius: 6, maxHeight: 160, objectFit: 'cover', background: '#000' }}
+                  />
+                ) : (
+                  <img
+                    src={getIncidentPhoto(activeDefect.object_type)}
+                    alt="Incident Visual"
+                    className="detail-preview-img"
+                  />
+                )}
+                {/* Badge over preview */}
+                {(activeDefect as any).clip_url ? (
+                  <span className="live-evidence-badge" style={{ top: 8, left: 8 }}>
+                    <Film size={8} /> LIVE EVIDENCE CLIP
+                  </span>
+                ) : (
+                  <span className="stock-photo-badge" style={{ top: 8, left: 8 }}>
+                    <Image size={8} /> STOCK PHOTO PREVIEW
+                  </span>
+                )}
               </div>
 
               <button className="view-details-action-btn">View Full Report</button>

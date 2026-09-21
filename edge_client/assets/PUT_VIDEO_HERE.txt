@@ -1,0 +1,14 @@
+Place your dashcam video file here and name it:
+
+    dashcam.mp4
+
+Then update the VIDEO= line in config.env if you used a different filename.
+
+------------------------------------------------------------
+Where to get a dashcam video:
+  - Use any dashcam / phone camera road footage
+  - Any driving video from YouTube (download with yt-dlp)
+  - The team will share test_dashcam.mp4 via the shared drive
+
+Minimum recommended: 30 seconds, 720p, MP4 format
+------------------------------------------------------------

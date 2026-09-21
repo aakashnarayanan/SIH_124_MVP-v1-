@@ -7,6 +7,7 @@ Production-grade Hexagonal Architecture matching the Master Plan:
   - H3 Spatial Grid aggregation for municipal heatmaps
   - Outbound Port: WebSocket Broadcast Adapter to Dashboard
   - Outbound Port: REST API for vehicles, defects, H3 hex grid, and health
+  - Evidence Clips: /api/clips for locally-saved edge MP4 clips
 """
 
 import asyncio
@@ -25,6 +26,7 @@ from domain.deduplication import SpatialDeduplicationEngine
 from core.ingestion_service import TelemetryIngestionService
 from plugins.mape_plugin import ServerMAPEPlugin
 from plugins.km_plugin import KnowledgeMediaPlugin
+from clips_router import router as clips_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,10 +44,12 @@ ingestion_service = TelemetryIngestionService(
     dedup_engine=dedup_engine,
     ws_broadcast=ws_adapter.broadcast,
     km_plugin=km_plugin,
+    mape_plugin=mape_plugin,
 )
 
 server_loop: asyncio.AbstractEventLoop = None
 latest_video_frame: bytes | None = None
+bus_video_frames: dict[str, bytes] = {}
 video_frame_condition = asyncio.Condition()
 
 
@@ -87,6 +91,9 @@ app = FastAPI(
     version="2.0.0-masterplan",
     lifespan=lifespan,
 )
+
+# Evidence clips endpoint (serves locally-saved MP4 clips from edge nodes)
+app.include_router(clips_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -170,13 +177,15 @@ async def receive_video_frame(request: Request):
     if not frame:
         return {"accepted": False, "reason": "empty frame"}
 
+    bus_id = request.headers.get("x-bus-id") or request.query_params.get("bus_id") or "bus_1"
     async with video_frame_condition:
         latest_video_frame = frame
+        bus_video_frames[bus_id] = frame
         video_frame_condition.notify_all()
-    return {"accepted": True, "bytes": len(frame)}
+    return {"accepted": True, "bytes": len(frame), "bus_id": bus_id}
 
 
-async def video_mjpeg_stream():
+async def video_mjpeg_stream(target_bus_id: str | None = None):
     """Yield the latest annotated frame as a browser-compatible MJPEG stream."""
     while True:
         async with video_frame_condition:
@@ -184,7 +193,10 @@ async def video_mjpeg_stream():
                 await asyncio.wait_for(video_frame_condition.wait(), timeout=5)
             except asyncio.TimeoutError:
                 pass
-            frame = latest_video_frame
+            if target_bus_id and target_bus_id in bus_video_frames:
+                frame = bus_video_frames[target_bus_id]
+            else:
+                frame = latest_video_frame
 
         if frame:
             yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n"
@@ -192,11 +204,18 @@ async def video_mjpeg_stream():
 
 @app.get("/video/stream", tags=["Video"])
 @app.get("/api/video/stream", tags=["Video"])
-async def video_stream():
+@app.get("/api/video/stream/{bus_id}", tags=["Video"])
+async def video_stream(bus_id: str | None = None):
     return StreamingResponse(
-        video_mjpeg_stream(),
+        video_mjpeg_stream(target_bus_id=bus_id),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
+
+
+@app.get("/api/video/buses", tags=["Video"])
+async def get_active_video_buses():
+    """Return list of bus IDs currently sending video frames."""
+    return {"buses": list(bus_video_frames.keys())}
 
 
 # ── WebSocket Endpoint ─────────────────────────────

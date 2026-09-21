@@ -102,6 +102,17 @@ select {
   background: var(--bg);
 }
 
+.presentation-fallback-banner {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 /* ── Sidebar ───────────────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
@@ -1597,6 +1608,11 @@ select {
   box-shadow: 0 0 8px #ef4444;
 }
 
+.status-led.amber {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
 .sidebar-user-footer {
   display: flex;
   align-items: center;
@@ -1696,13 +1712,28 @@ select {
   letter-spacing: 0.05em;
 }
 
-.live-dot-green {
+.live-status-chip.presentation {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.live-dot-green,
+.live-dot-amber {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  animation: pulse-dot 1.5s infinite;
+}
+
+.live-dot-green {
   background: #10b981;
   box-shadow: 0 0 6px #10b981;
-  animation: pulse-dot 1.5s infinite;
+}
+
+.live-dot-amber {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
 }
 
 .live-clock-text {
@@ -3593,3 +3624,254 @@ select {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   LIGHT MODE — [data-theme='light'] overrides
+   Switches the entire design system to a crisp light palette while
+   preserving neon accent colors for brand consistency.
+   ══════════════════════════════════════════════════════════════════ */
+[data-theme='light'] {
+  --bg:      #f0f4f8;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --surface3: #e2e8f0;
+  --border: rgba(59, 130, 246, 0.18);
+  --border2: rgba(0, 0, 0, 0.07);
+
+  --text:       #0f172a;
+  --text-muted: #64748b;
+  --text-dim:   #94a3b8;
+
+  --glass-bg:     rgba(255, 255, 255, 0.90);
+  --glass-border: rgba(59, 130, 246, 0.20);
+}
+
+/* Light mode — body & app root */
+[data-theme='light'] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme='light'] .app-root {
+  background: var(--bg);
+}
+
+/* Light mode — sidebar */
+[data-theme='light'] .routesense-sidebar {
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f2340 100%);
+  border-right-color: rgba(59, 130, 246, 0.20);
+}
+
+/* Light mode — pages */
+[data-theme='light'] .routesense-page {
+  background: var(--bg);
+}
+
+[data-theme='light'] .routesense-page-header {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .header-main-title {
+  color: #0f172a;
+}
+
+[data-theme='light'] .header-subtitle {
+  color: #64748b;
+}
+
+/* Light mode — cards */
+[data-theme='light'] .routesense-card,
+[data-theme='light'] .routesense-metric-card {
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .card-title {
+  color: #0f172a;
+}
+
+/* Light mode — map container */
+[data-theme='light'] .routesense-map-container {
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Light mode — glass legend */
+[data-theme='light'] .routesense-glass-legend {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(59, 130, 246, 0.15);
+  color: #1e293b;
+}
+
+/* Light mode — events list */
+[data-theme='light'] .events-list-column {
+  background: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .event-thumbnail-card {
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.10);
+}
+
+[data-theme='light'] .event-thumbnail-card:hover,
+[data-theme='light'] .event-thumbnail-card.active {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.30);
+}
+
+/* Light mode — stats */
+[data-theme='light'] .metric-big-num {
+  color: #0f172a;
+}
+
+[data-theme='light'] .metric-title {
+  color: #64748b;
+}
+
+/* Light mode — tables */
+[data-theme='light'] .detections-table th {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+[data-theme='light'] .detections-table td {
+  color: #1e293b;
+  border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='light'] .detections-table tr:hover td {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+/* Light mode — fleet */
+[data-theme='light'] .fleet-bus-card {
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.12);
+}
+
+/* Light mode — presentation banner */
+[data-theme='light'] .presentation-fallback-banner {
+  background: rgba(234, 179, 8, 0.10);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: #854d0e;
+}
+
+/* Light mode — scrollbar */
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.20);
+}
+
+/* ── Theme Toggle Button ──────────────────────────────────────────── */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+/* ── Evidence Clips Panel ─────────────────────────────────────────── */
+.clips-panel {
+  margin-top: 16px;
+}
+
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.clip-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.clip-card:hover {
+  border-color: rgba(59, 130, 246, 0.40);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+.clip-card video {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.clip-card-meta {
+  padding: 6px 10px 8px;
+}
+
+.clip-defect-id {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip-bus-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-top: 2px;
+}
+
+.live-evidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}
+
+.stock-photo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(100, 116, 139, 0.15);
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}

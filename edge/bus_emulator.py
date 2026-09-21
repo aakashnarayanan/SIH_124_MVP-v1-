@@ -29,6 +29,7 @@ from edge.mape_k_edge import EdgeMAPELoop
 from edge.inference import EdgeMultiModelEngine
 from edge.network.mqtt_client import EdgeMQTTClient
 from edge.storage.cache import EdgeTelemetryCache
+from edge.evidence import EvidenceClipBuffer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,11 +75,30 @@ def run_emulator(
 
     # Initialize Edge Modules
     cache = EdgeTelemetryCache(db_path=f"edge/storage/{bus_id}_cache.db")
+
+    # Evidence clip buffer: retains ~10 s of frames and writes local MP4 on MediaSyncRequest.
+    evidence_dir = os.path.join("edge", "evidence_clips", bus_id)
+    evidence_buffer = EvidenceClipBuffer(
+        output_dir=evidence_dir,
+        fps=float(target_fps),
+        retention_seconds=10.0,
+        on_complete=lambda path: logger.info(f"[{bus_id}] Saved local clip: {path}"),
+    )
+
+    def handle_media_request(command: dict) -> None:
+        queued = evidence_buffer.request_clip(
+            defect_id=command.get("defect_id", "unknown"),
+            duration_seconds=command.get("clip_duration", 2),
+        )
+        status = "queued" if queued else "unavailable (buffer empty or writer busy)"
+        logger.info(f"[{bus_id}] MediaSyncRequest {command.get('defect_id', 'unknown')}: {status}")
+
     mqtt_client = EdgeMQTTClient(
         bus_id=bus_id,
         broker_host=MQTT_BROKER_HOST,
         broker_port=MQTT_BROKER_PORT,
         cache=cache,
+        on_command=handle_media_request,
     )
     mqtt_client.start()
 
@@ -189,7 +209,7 @@ def run_emulator(
                 mqtt_client.publish_heartbeat(yolo_fps=metrics["fps"])
                 last_heartbeat_time = now
 
-            # Optional video annotation writing
+            # Optional video annotation writing + evidence buffer feed
             if video_writer:
                 for d in defects:
                     b = d["bbox"]
@@ -205,6 +225,9 @@ def run_emulator(
                     )
                 video_writer.write(frame)
 
+            # Feed annotated frame into the local evidence ring buffer
+            evidence_buffer.add_frame(raw=frame, annotated=frame)
+
             last_frame_time = time.time()
 
             # Dynamic pacing
@@ -216,6 +239,7 @@ def run_emulator(
         cap.release()
         if video_writer:
             video_writer.release()
+        evidence_buffer.stop()
         mqtt_client.stop()
         logger.info(f"[{bus_id}] Edge Transit Node shut down cleanly.")
 

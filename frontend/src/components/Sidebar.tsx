@@ -13,7 +13,10 @@ import {
   Settings,
   ShieldCheck,
   Radar,
+  Moon,
+  Sun,
 } from 'lucide-react'
+import { useTheme } from '../theme'
 
 interface SidebarProps {
   activePage: PageId
@@ -21,6 +24,7 @@ interface SidebarProps {
   defectCount: number
   vehicleCount: number
   isConnected: boolean
+  isLiveData: boolean
 }
 
 export default function Sidebar({
@@ -28,7 +32,9 @@ export default function Sidebar({
   onNavigate,
   defectCount,
   isConnected,
+  isLiveData,
 }: SidebarProps) {
+  const { theme, toggleTheme } = useTheme()
   const navItems: { id: PageId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'command',   label: 'Command Center',    icon: <LayoutDashboard size={18} /> },
     { id: 'fleet',     label: 'Fleet Tracking',    icon: <Navigation size={18} /> },
@@ -74,10 +80,20 @@ export default function Sidebar({
 
       {/* System Status */}
       <div className="sidebar-system-box">
+        <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
+          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        </button>
         <div className="system-status-header">System Status</div>
         <div className="system-status-indicator">
-          <span className={`status-led ${isConnected ? 'green' : 'red'}`}></span>
-          <span>{isConnected ? 'All Systems Operational' : 'Offline / Standby'}</span>
+          <span className={`status-led ${isLiveData ? 'green' : isConnected ? 'amber' : 'red'}`}></span>
+          <span>
+            {isLiveData
+              ? 'All Systems Operational'
+              : isConnected
+                ? 'Presentation fallback'
+                : 'Offline / Standby'}
+          </span>
         </div>
       </div>
 

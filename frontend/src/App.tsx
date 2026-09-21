@@ -39,17 +39,23 @@ function updateDefect(prev: DefectMarker[], updated: DefectMarker): DefectMarker
 function App() {
   const [activePage, setActivePage] = useState<PageId>('command')
 
-  // Seed from REST on load
-  const { vehicles: initVehicles, defects: initDefects, health } = useRestApi()
+  const {
+    vehicles: restVehicles,
+    defects: restDefects,
+    health,
+    h3Cells,
+    isLiveData,
+    error: restError,
+    loading: restLoading,
+  } = useRestApi()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [defects, setDefects] = useState<DefectMarker[]>([])
   const [alerts, setAlerts] = useState<AlertEvent[]>([])
 
-  // Sync REST seed into state once loaded
   useEffect(() => {
-    if (initVehicles.length > 0) setVehicles(initVehicles)
-    if (initDefects.length > 0) setDefects(initDefects)
-  }, [initVehicles, initDefects])
+    setVehicles(restVehicles)
+    setDefects(restDefects)
+  }, [restVehicles, restDefects])
 
   const handleVehicleMoved = useCallback((data: Vehicle) => {
     setVehicles(prev => updateVehicle(prev, data))
@@ -75,7 +81,7 @@ function App() {
 
   const handleClearAlerts = useCallback(() => setAlerts([]), [])
 
-  const pageProps = { vehicles, defects, health, isConnected }
+  const pageProps = { vehicles, defects, health, isConnected, isLiveData }
 
   return (
     <div className="app-root">
@@ -85,10 +91,21 @@ function App() {
         defectCount={defects.length}
         vehicleCount={vehicles.length}
         isConnected={isConnected}
+        isLiveData={isLiveData}
       />
       <main className="app-main">
+        {!restLoading && !isLiveData && (
+          <div className="presentation-fallback-banner" role="status">
+            {restError || 'Backend unavailable — displaying local presentation data'}
+          </div>
+        )}
         {activePage === 'command' && (
-          <CommandCenter {...pageProps} alerts={alerts} onClearAlerts={handleClearAlerts} />
+          <CommandCenter
+            {...pageProps}
+            alerts={alerts}
+            h3Cells={h3Cells}
+            onClearAlerts={handleClearAlerts}
+          />
         )}
         {activePage === 'fleet' && (
           <FleetTracking vehicles={vehicles} defects={defects} />

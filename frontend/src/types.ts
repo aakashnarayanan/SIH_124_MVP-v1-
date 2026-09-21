@@ -55,6 +55,17 @@ export interface HealthInfo {
   h3_clusters?: number
 }
 
+/** A server-authoritative H3 density cell, ready for Leaflet rendering. */
+export interface H3Cell {
+  h3_index: string
+  count: number
+  traffic_count?: number
+  defect_reports?: number
+  unique_defects?: number
+  /** H3 boundary coordinates in Leaflet [latitude, longitude] order. */
+  coordinates: [number, number][]
+}
+
 /** UI alert item (subset of DefectMarker, used in feed) */
 export interface AlertEvent extends DefectMarker {
   received_at: number  // timestamp when we got this alert

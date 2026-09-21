@@ -140,11 +140,13 @@ server/
 ├── adapters/
 │   ├── mqtt_adapter.py           # Inbound MQTT client with Protobuf deserialization
 │   └── websocket_adapter.py      # Thread-safe WebSocket broadcaster
+├── clips_router.py               # [NEW] Evidence clips REST API router
 ├── config.py                     # Host, port, and spatial deduplication constants
 ├── core/
 │   └── ingestion_service.py      # Business logic coordinator & H3 density grid
 ├── domain/
 │   ├── deduplication.py          # 3-Meter SciPy cKDTree spatial deduplication engine
+│   ├── ingress.py                # [NEW] MQTT ingress sanitiser / validation layer
 │   └── models.py                 # TelemetryReading, DefectMarker, VehiclePosition dataclasses
 ├── plugins/
 │   ├── km_plugin.py              # Knowledge-Media snapshot orchestration
@@ -152,3 +154,28 @@ server/
 ├── main.py                       # FastAPI application & REST endpoint routes
 └── requirements.txt              # Server dependencies (FastAPI, Uvicorn, SciPy, H3, etc.)
 ```
+
+---
+
+## 📅 Update Log
+
+### Session 1 — 2026-09-20 · MQTT Ingress Sanitiser & H3 Sliding Window
+
+- **`domain/ingress.py`** (NEW): Validates all inbound MQTT telemetry. Drops packets with latitude outside [-90, 90], longitude outside [-180, 180], confidence outside [0.0, 1.0], or non-positive timestamp. Truncates `bus_id` and `object_type` to 64 chars.
+- **`plugins/mape_plugin.py`**: Now a live 5-minute H3 sliding-window MAPE aggregator. Thread-safe deque per H3 cell. `get_h3_cells(now_ms)` filters events to the active window. Aggregates `traffic_count`, `defect_reports`, `unique_defects`.
+- **`domain/deduplication.py`**: Added `DEDUP_WINDOW_SECONDS = 300` — markers older than the window are purged and their positions can be re-registered.
+
+### Session 2 — 2026-09-21 · Evidence Clips REST API
+
+- **`clips_router.py`** (NEW): FastAPI `APIRouter` mounted at `/api/clips`:
+  - `GET /api/clips` — lists all MP4 clips from `edge/evidence_clips/` sorted newest-first
+  - `GET /api/clips/{bus_id}/{filename}` — streams MP4 via `FileResponse`
+- **`main.py`**: Clips router mounted at startup; CORS enabled for localhost frontend.
+
+### Session 3 — 2026-09-21 · Multi-Bus MJPEG Video Streaming
+
+- **`main.py`**: Added `bus_video_frames: dict[str, bytes]` global keyed by `X-Bus-Id` HTTP header.
+  - `POST /api/video/frame` now stores frame in per-bus dict (and still updates `latest_video_frame` for backward compatibility).
+  - `GET /api/video/stream/{bus_id}` — per-bus MJPEG stream.
+  - `GET /api/video/stream` — unchanged; returns most-recent frame.
+  - `GET /api/video/buses` — returns list of bus IDs currently posting frames.

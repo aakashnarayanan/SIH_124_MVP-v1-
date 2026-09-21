@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import type { Vehicle, DefectMarker, HealthInfo } from '../types'
+import type { Vehicle, DefectMarker, HealthInfo, H3Cell } from '../types'
 
 const API_FALLBACK = 'http://localhost:8000'
 
@@ -12,6 +12,8 @@ interface RestApiState {
   vehicles: Vehicle[]
   defects: DefectMarker[]
   health: HealthInfo | null
+  h3Cells: H3Cell[]
+  isLiveData: boolean
   loading: boolean
   error: string | null
 }
@@ -36,6 +38,8 @@ export function useRestApi(): RestApiState {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [defects, setDefects] = useState<DefectMarker[]>([])
   const [health, setHealth] = useState<HealthInfo | null>(null)
+  const [h3Cells, setH3Cells] = useState<H3Cell[]>([])
+  const [isLiveData, setIsLiveData] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,10 +48,11 @@ export function useRestApi(): RestApiState {
 
     const fetchAll = async () => {
       try {
-        const [vData, dData, hData] = await Promise.all([
+        const [vData, dData, hData, gridData] = await Promise.all([
           safeFetch('/vehicles'),
           safeFetch('/defects'),
           safeFetch('/health'),
+          safeFetch('/h3-grid'),
         ])
 
         if (!mounted) return
@@ -66,17 +71,24 @@ export function useRestApi(): RestApiState {
 
         if (hData) {
           setHealth(hData)
+          setH3Cells(gridData && Array.isArray(gridData.cells) ? gridData.cells : [])
+          setIsLiveData(true)
           setError(null)
         } else {
-          // If server is unreachable on mount and state is empty, seed demo data
+          // Preserve a resilient presentation mode, but surface it unambiguously.
           setVehicles(prev => prev.length > 0 ? prev : DEMO_VEHICLES)
           setDefects(prev => prev.length > 0 ? prev : DEMO_DEFECTS)
+          setH3Cells([])
+          setIsLiveData(false)
+          setError('Backend unavailable — displaying local presentation data')
         }
       } catch (e) {
         if (mounted) {
           setError('Running in presentation fallback mode')
           setVehicles(prev => prev.length > 0 ? prev : DEMO_VEHICLES)
           setDefects(prev => prev.length > 0 ? prev : DEMO_DEFECTS)
+          setH3Cells([])
+          setIsLiveData(false)
         }
       } finally {
         if (mounted) setLoading(false)
@@ -95,7 +107,7 @@ export function useRestApi(): RestApiState {
     }
   }, [])
 
-  return { vehicles, defects, health, loading, error }
+  return { vehicles, defects, health, h3Cells, isLiveData, loading, error }
 }
 
 // ── Demo data for offline/presentation mode ──────────────────────────────────

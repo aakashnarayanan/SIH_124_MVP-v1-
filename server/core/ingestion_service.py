@@ -28,24 +28,26 @@ class TelemetryIngestionService:
         dedup_engine: SpatialDeduplicationEngine,
         ws_broadcast=None,
         km_plugin=None,
-        h3_resolution: int = 8,
+        mape_plugin=None,
     ):
         self._dedup = dedup_engine
         self._ws_broadcast = ws_broadcast
         self._km_plugin = km_plugin
-        self.h3_resolution = h3_resolution
+        self._mape_plugin = mape_plugin
 
         self._vehicle_positions: Dict[str, VehiclePosition] = {}
         self._vehicle_health: Dict[str, dict] = {}
-        self._h3_density: Dict[str, int] = {}  # h3_index -> defect/traffic count
 
-        logger.info(f"[IngestionService] Initialized with H3 resolution={h3_resolution}")
+        logger.info("[IngestionService] Initialized")
 
     def set_ws_broadcast(self, broadcast_fn):
         self._ws_broadcast = broadcast_fn
 
     def set_km_plugin(self, km_plugin):
         self._km_plugin = km_plugin
+
+    def set_mape_plugin(self, mape_plugin):
+        self._mape_plugin = mape_plugin
 
     def handle_heartbeat(self, hb: dict):
         bus_id = hb.get("bus_id", "unknown")
@@ -63,16 +65,18 @@ class TelemetryIngestionService:
         # 1. Update vehicle position
         self._update_vehicle_position(reading)
 
-        # 2. Update H3 cell count
-        try:
-            h3_index = h3.latlng_to_cell(reading.latitude, reading.longitude, self.h3_resolution)
-            self._h3_density[h3_index] = self._h3_density.get(h3_index, 0) + 1
-        except Exception as e:
-            logger.debug(f"[H3] Error computing cell: {e}")
+        # 2. Update the server-side MAPE-K five-minute H3 knowledge store.
+        if self._mape_plugin:
+            self._mape_plugin.on_telemetry(reading)
 
         # 3. Spatial Deduplication (if it's a defect)
         if reading.object_type != "traffic_survey":
             action, marker = self._dedup.process(reading)
+            if marker and self._mape_plugin:
+                if action == "new":
+                    self._mape_plugin.on_defect_new(marker, reading)
+                else:
+                    self._mape_plugin.on_defect_updated(marker, reading)
             return action, marker
         return None, None
 
@@ -114,14 +118,18 @@ class TelemetryIngestionService:
         return self._dedup.get_all_markers()
 
     def get_h3_grid(self) -> List[Dict[str, Any]]:
-        """Returns H3 density hexes with boundary polygons for Leaflet rendering."""
+        """Return the authoritative active-window H3 grid for Leaflet rendering."""
         cells = []
-        for h3_id, count in self._h3_density.items():
+        h3_cells = self._mape_plugin.get_h3_cells() if self._mape_plugin else {}
+        for h3_id, metrics in h3_cells.items():
             try:
                 boundary = h3.cell_to_boundary(h3_id)  # [(lat, lng), ...]
                 cells.append({
                     "h3_index": h3_id,
-                    "count": count,
+                    "count": metrics["traffic_count"],
+                    "traffic_count": metrics["traffic_count"],
+                    "defect_reports": metrics["defect_reports"],
+                    "unique_defects": metrics["unique_defects"],
                     "coordinates": boundary,
                 })
             except Exception:
@@ -129,9 +137,10 @@ class TelemetryIngestionService:
         return cells
 
     def get_stats(self) -> dict:
+        h3_clusters = len(self._mape_plugin.get_h3_cells()) if self._mape_plugin else 0
         return {
             "active_vehicles": len(self._vehicle_positions),
             "total_defects": self._dedup.get_marker_count(),
-            "h3_clusters": len(self._h3_density),
+            "h3_clusters": h3_clusters,
             "uptime_s": int(time.time()),
         }

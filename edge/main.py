@@ -40,6 +40,8 @@ from edge.mape_k_edge import EdgeMAPELoop
 from edge.inference import EdgeMultiModelEngine
 from edge.network.mqtt_client import EdgeMQTTClient
 from edge.storage.cache import EdgeTelemetryCache
+from edge.evidence import EvidenceClipBuffer
+from edge.health import cpu_temperature_c, process_memory_mb
 
 
 class LatestFrameUploader:
@@ -142,6 +144,7 @@ def run_edge_node(
     broker_port: int = MQTT_BROKER_PORT,
     video_server_url: str = "http://localhost:8000/api/video/frame",
     max_frames: int = None,
+    demo_stream_frames: bool = False,
 ):
     # Resolve source path
     if not os.path.exists(source):
@@ -169,11 +172,25 @@ def run_edge_node(
     # Initialize Edge Storage & MQTT
     cache_path = os.path.join(BASE_DIR, "edge", "storage", f"{bus_id}_cache.db")
     cache = EdgeTelemetryCache(db_path=cache_path)
+    evidence_dir = os.path.join(BASE_DIR, "edge", "evidence_clips", bus_id)
+    evidence_buffer: EvidenceClipBuffer | None = None
+
+    def handle_media_request(command: dict) -> None:
+        if not evidence_buffer:
+            return
+        queued = evidence_buffer.request_clip(
+            defect_id=command.get("defect_id", "unknown"),
+            duration_seconds=command.get("clip_duration", 2),
+        )
+        status = "queued" if queued else "unavailable (buffer empty or writer busy)"
+        print(f"[Evidence] MediaSyncRequest for {command.get('defect_id', 'unknown')}: {status}")
+
     mqtt_client = EdgeMQTTClient(
         bus_id=bus_id,
         broker_host=broker_host,
         broker_port=broker_port,
         cache=cache,
+        on_command=handle_media_request,
     )
     mqtt_client.start()
     frame_uploader = LatestFrameUploader(video_server_url, bus_id)
@@ -198,6 +215,12 @@ def run_edge_node(
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    evidence_buffer = EvidenceClipBuffer(
+        output_dir=evidence_dir,
+        fps=float(target_fps),
+        retention_seconds=10.0,
+        on_complete=lambda path: print(f"[Evidence] Saved local clip: {path}"),
+    )
 
     if verbose:
         print(f"================================================================================")
@@ -248,8 +271,7 @@ def run_edge_node(
             analysis = mape_loop.analyze(metrics)
             plan = mape_loop.plan(analysis)
             adaptation = mape_loop.execute(plan)
-
-            if adaptation["drop_frame"]:
+            if adaptation["drop_frame"]:
                 continue
 
             # ── 2. Parallel 3-Model Inference ─────────────────────────
@@ -274,6 +296,8 @@ def run_edge_node(
             cached_count = cache.count()
             if is_online:
                 net_status = "ONLINE (MQTT)"
+            elif cached_count > 0:
+                net_status = f"OFFLINE (CACHED: {cached_count} queued)"
             else:
                 net_status = "OFFLINE (CACHED)"
 
@@ -300,7 +324,12 @@ def run_edge_node(
 
             # Publish Heartbeat
             if now_t - last_heartbeat_time >= 5.0:
-                mqtt_client.publish_heartbeat(yolo_fps=instant_fps)
+                mqtt_client.publish_heartbeat(
+                    yolo_fps=instant_fps,
+                    cpu_temp_c=cpu_temperature_c(),
+                    ram_usage_mb=process_memory_mb(),
+                    camera_ok=cap.isOpened(),
+                )
                 last_heartbeat_time = now_t
 
             # ── 5. Terminal Output (Exact Match with Reference Photo) ──
@@ -338,11 +367,16 @@ def run_edge_node(
                 net_status=net_status,
                 cached_count=cached_count,
             )
+            evidence_buffer.add_frame(frame, annotated_frame)
 
-            # Queue the newest frame without blocking the inference loop.
-            encoded_ok, encoded = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-            if encoded_ok:
-                frame_uploader.submit(encoded.tobytes())
+            # Queue the newest annotated frame for the dashboard.
+            # NOTE: This path is Demo Mode only (--demo-stream-frames).
+            # Default behaviour follows the master-plan: binary Protobuf telemetry only;
+            # video clips are requested on-demand via MediaSyncRequest.
+            if demo_stream_frames and is_online:
+                encoded_ok, encoded = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if encoded_ok:
+                    frame_uploader.submit(encoded.tobytes())
 
             if writer:
                 writer.write(annotated_frame)
@@ -368,6 +402,8 @@ def run_edge_node(
         if show_video:
             cv2.destroyAllWindows()
         frame_uploader.stop()
+        if evidence_buffer:
+            evidence_buffer.stop()
         mqtt_client.stop()
         print(f"[Notice] Edge Node [{bus_id.upper()}] stopped cleanly.")
 
@@ -440,6 +476,17 @@ def main():
         help="Optional limit on number of frames to process before stopping",
     )
 
+    parser.add_argument(
+        "--demo-stream-frames",
+        action="store_true",
+        default=False,
+        help=(
+            "Upload continuous annotated JPEG frames to /api/video/frame for the dashboard. "
+            "Demo/presentation mode only. Default OFF to comply with master-plan "
+            "bandwidth-minimization principle (Protobuf telemetry + on-demand clips)."
+        ),
+    )
+
     args = parser.parse_args()
 
     run_edge_node(
@@ -454,6 +501,7 @@ def main():
         broker_port=args.broker_port,
         video_server_url=args.video_server,
         max_frames=args.max_frames,
+        demo_stream_frames=args.demo_stream_frames,
     )
 
 

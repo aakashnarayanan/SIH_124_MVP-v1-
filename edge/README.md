@@ -101,3 +101,41 @@ edge/
 └── storage/
     └── cache.py             # SQLite offline circuit breaker storage
 ```
+
+---
+
+## 📅 Update Log
+
+### Session 2 — 2026-09-21 · Circular Routes & Evidence Clips
+
+#### GPS Routes — Now Circular Loops
+The three route CSVs were updated to **closed circular rings** around Delhi landmarks so bus icons loop indefinitely on the dashboard map:
+
+| Route | Location | Radius | Points |
+|---|---|---|---|
+| `route_1.csv` | Connaught Place ring | ~890m | 100 pts (2 laps) |
+| `route_2.csv` | India Gate loop | ~1110m | 100 pts (2 laps) |
+| `route_3.csv` | Pragati Maidan loop | ~850m | 100 pts (2 laps) |
+
+#### Evidence Clip System (`evidence.py` — NEW file)
+On-device `EvidenceClipBuffer`:
+- Keeps a sliding 10-second ring buffer of annotated + raw frames.
+- On `MediaSyncRequest` MQTT command, writes a local MP4 evidence clip off-thread (non-blocking).
+- Clip saved to `edge/evidence_clips/{bus_id}/` on disk.
+- Server exposes clips via REST `/api/clips` and `/api/clips/{bus_id}/{filename}`.
+
+#### Health Monitor (`health.py` — NEW file)
+Samples process RAM (`psutil`) and Linux CPU thermal zone temperature where available; returns 0 on Windows for temperature.
+
+### Session 3 — 2026-09-21 · H.264 Video Codec Fix & Multi-Bus Streaming
+
+#### Evidence Clips — Fixed Black Screen (mp4v → AVC1 H.264)
+- `evidence.py` now uses `cv2.VideoWriter_fourcc(*"avc1")` (H.264) as primary codec with `mp4v` fallback.
+- Requires Cisco OpenH264 DLL: automatically downloaded to Python runtime dir by `SETUP.bat` / manually from `http://ciscobinary.openh264.org/`.
+- Old clips (MPEG-4 Part 2) were unplayable in browsers; new clips play natively in `<video>` tags.
+
+#### New CLI Flag — `--demo-stream-frames`
+The `run_edge_node()` function and `main()` both accept `--demo-stream-frames`. Without this flag, no JPEG frames are POSTed to the server (saves bandwidth; Protobuf telemetry always flows). **All 3 buses now pass this flag in `exec.py`.**
+
+#### Multi-Bus MJPEG Streaming
+Each bus's live JPEG frames are stored in a per-bus dictionary on the server (`bus_video_frames[bus_id]`). The dashboard's Video Intelligence page can switch between bus feeds in real time.

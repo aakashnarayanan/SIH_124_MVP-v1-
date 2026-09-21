@@ -18,7 +18,7 @@ import numpy as np
 from scipy.spatial import KDTree
 
 from domain.models import DefectMarker, TelemetryReading
-from config import DEDUP_RADIUS_METERS
+from config import DEDUP_RADIUS_METERS, DEDUP_WINDOW_SECONDS
 
 logger = logging.getLogger("SpatialDeduplication")
 
@@ -41,8 +41,12 @@ class SpatialDeduplicationEngine:
     Maintains an active KD-Tree of infrastructure defect markers.
     """
 
-    def __init__(self, radius_meters: float = DEDUP_RADIUS_METERS):
+    def __init__(self, radius_meters: float = DEDUP_RADIUS_METERS,
+                 window_seconds: int = DEDUP_WINDOW_SECONDS):
+        if window_seconds <= 0:
+            raise ValueError("window_seconds must be positive")
         self.radius_meters = radius_meters
+        self.window_ms = window_seconds * 1000
         self._lock = threading.Lock()
 
         # Storage
@@ -51,7 +55,8 @@ class SpatialDeduplicationEngine:
         self._cartesian_points: List[np.ndarray] = []        # Index in KD-Tree array -> [x, y, z]
         self._kdtree: Optional[KDTree] = None
 
-        logger.info(f"[Dedup] KD-Tree Deduplication Engine initialized (Radius: {radius_meters}m)")
+        logger.info("[Dedup] KD-Tree engine initialized (radius=%sm, window=%ss)",
+                    radius_meters, window_seconds)
 
     def process(self, reading: TelemetryReading) -> Tuple[str, DefectMarker]:
         """
@@ -63,6 +68,7 @@ class SpatialDeduplicationEngine:
         point = gps_to_cartesian(reading.latitude, reading.longitude)
 
         with self._lock:
+            self._expire_before_locked(reading.timestamp_ms - self.window_ms)
             # Query KD-Tree if populated
             match_marker = None
             if self._kdtree is not None and len(self._cartesian_points) > 0:
@@ -128,6 +134,23 @@ class SpatialDeduplicationEngine:
                     f"[{marker.object_type}] at ({marker.latitude:.5f}, {marker.longitude:.5f})"
                 )
                 return "new", marker
+
+    def _expire_before_locked(self, cutoff_ms: int) -> None:
+        """Drop stale markers; the next sighting is a new active observation."""
+        expired = [marker_id for marker_id, marker in self._markers.items()
+                   if marker.last_seen_ms < cutoff_ms]
+        if not expired:
+            return
+        for marker_id in expired:
+            del self._markers[marker_id]
+        self._marker_ids = [marker_id for marker_id in self._marker_ids
+                            if marker_id in self._markers]
+        self._cartesian_points = [
+            gps_to_cartesian(self._markers[marker_id].latitude,
+                             self._markers[marker_id].longitude)
+            for marker_id in self._marker_ids
+        ]
+        self._kdtree = KDTree(np.array(self._cartesian_points)) if self._cartesian_points else None
 
     def get_all_markers(self) -> List[DefectMarker]:
         with self._lock:
