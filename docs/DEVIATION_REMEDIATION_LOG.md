@@ -194,6 +194,14 @@ PostGIS/TimescaleDB spatial persistence, S3/MinIO evidence clip archive, hardwar
 | Demo execution guide | ⚠️ Fragmented | ✅ Closed (HOW_TO_RUN_DEMO.md created) |
 | All pipeline tests | ✅ 8/8 | ✅ Still 8/8 after codec fix |
 
+### Session 3 Follow-up — 2026-09-22 · GitHub Clean-up & Friend Client Provisioning
+
+- **Excluded Files Documentation:** Documented all files excluded via `.gitignore` (`openh264-2.5.0-win64.dll`, `edge_client/assets/*.mp4`, SQLite caches, runtime clips).
+- **Zero-Friction Friend Edge Client Setup (`edge_client/SETUP.bat`):**
+  - Upgraded `edge_client/SETUP.bat` to automatically check for and download Cisco OpenH264 binary via Python `bz2` + `urllib` if not present.
+  - Automatically initializes `edge_client/assets/dashcam.mp4` by copying `edge/assets/test_dashcam.mp4` from parent repo if present.
+  - Full instructions added to `README.md`, `edge_client/README.md`, `HOW_TO_RUN_DEMO.md`, and `docs/HOW_TO_RUN_DEMO.md`.
+
 **Overall master-plan SIH MVP fidelity: ~94%** (up from ~90%)
 
 ---

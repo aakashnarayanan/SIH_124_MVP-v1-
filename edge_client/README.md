@@ -13,13 +13,32 @@ Run this on any laptop to add a bus to the live demo.
 
 ---
 
+## 📦 Files Excluded from GitHub & Where to Place Them
+
+To keep the repository fast to clone, large binary media and compiled libraries are excluded via `.gitignore`. Here is what you need and where it goes:
+
+| File | Where to Put It | Why It's Needed | How to Get It |
+|---|---|---|---|
+| **`dashcam.mp4`** *(or any driving MP4)* | `edge_client/assets/dashcam.mp4` | Driving video feed processed by the 3 YOLO AI models | **Auto-copied** by `SETUP.bat` from `edge/assets/test_dashcam.mp4` if cloned with repo. Or drop in any 720p/1080p MP4 dashcam video. |
+| **`openh264-2.5.0-win64.dll`** | `edge_client/openh264-2.5.0-win64.dll` (or project root) | Cisco H.264 codec library. Without this, OpenCV encodes clips in `mp4v` which causes **black screens** in web browsers. | **Auto-downloaded** by `SETUP.bat` directly from Cisco. Or run: `python -c "import bz2, urllib.request; open('openh264-2.5.0-win64.dll','wb').write(bz2.decompress(urllib.request.urlopen('http://ciscobinary.openh264.org/openh264-2.5.0-win64.dll.bz2').read()))"` |
+| **YOLO Weights** (`*.pt`) | `edge/models/*.pt` | AI inference models (`pothole.pt`, `traffic.pt`, `yolov8n-seg.pt`) | **Already committed** to GitHub in `edge/models/`. |
+| **Evidence Clips** (`*.mp4`) | `edge/evidence_clips/bus_*/` | Local on-demand incident recordings | Generated automatically at runtime when road defects are detected. |
+| **SQLite Cache** (`*.db`) | `edge/storage/bus_*_cache.db` | Local offline telemetry buffer | Generated automatically at runtime. |
+
+---
+
 ## Step 1 — One-Time Setup (run once per machine)
 
 ```
 Double-click: SETUP.bat
 ```
 
-This installs all Python dependencies. Takes 3–5 minutes on first run.
+This automatically:
+1. Installs all edge Python dependencies (`ultralytics`, `opencv-python`, `paho-mqtt`, `protobuf`, etc.)
+2. Downloads the Cisco `openh264-2.5.0-win64.dll` codec so evidence clips play natively in the browser without black screens
+3. Copies `edge/assets/test_dashcam.mp4` to `edge_client/assets/dashcam.mp4` if no video exists yet
+
+Takes ~1–3 minutes on first run.
 
 ---
 
@@ -44,15 +63,16 @@ ROUTE=route_2    ← route_1 through route_5 available
 
 ---
 
-## Step 3 — Add Your Video
+## Step 3 — Add Your Video (Optional if using default)
 
-Place your dashcam video inside the `assets/` folder:
+If you have your own driving footage, place your dashcam video inside the `assets/` folder:
 
 ```
 assets/dashcam.mp4
 ```
 
-> If you name it differently, update `VIDEO=` in `config.env`.
+> If you name it differently (e.g. `assets/my_drive.mp4`), update `VIDEO=` in `config.env`.
+> If left as default, `SETUP.bat` automatically sets up the sample dashcam video.
 
 ---
 

@@ -100,24 +100,24 @@ You can run an edge client on a friend's laptop connected to the same WiFi or mo
    ipconfig
    ```
    *(e.g., `192.168.1.45`)*
-2. **Copy the `edge_client/` folder** (or clone the repository) onto your friend's laptop.
-3. Open `edge_client/config.env` on your friend's laptop and set:
+2. **Have your friend clone the repository** (or copy the project folder) onto their laptop:
+   ```bash
+   git clone https://github.com/Raj-Kanna-05/SIH_124_MVP-v1-.git
+   ```
+3. **On your friend's laptop, open `edge_client/SETUP.bat`** and double-click to run it:
+   - Installs required edge packages (`ultralytics`, `opencv`, etc.)
+   - Automatically downloads Cisco's `openh264-2.5.0-win64.dll` (enables H.264 evidence playback without black screens)
+   - Automatically initializes `edge_client/assets/dashcam.mp4` from `edge/assets/test_dashcam.mp4`
+4. **Open `edge_client/config.env`** on your friend's laptop and set:
    ```ini
-   SERVER_IP=192.168.1.45
-   BUS_ID=bus_4
-   ROUTE=route_4
-   VIDEO=assets/friend_video.mp4
+   SERVER_IP=192.168.1.45       # Your server laptop's IP
+   BUS_ID=bus_4                 # Unique ID for friend's bus (e.g. bus_4, bus_5)
+   ROUTE=route_4                # Pick route_2, route_3, route_4, route_5
+   VIDEO=assets/dashcam.mp4     # Or assets/their_video.mp4 if using custom video
    ```
-4. Place their dashcam video inside `edge_client/assets/friend_video.mp4`.
-5. On your friend's laptop, run:
-   ```bat
-   # One-time dependency setup:
-   SETUP.bat
-
-   # Start the edge node:
-   START.bat
-   ```
-6. Their bus will instantly appear on your Command Center map at `http://localhost:5173`!
+5. *(Optional)* If your friend has their own driving video, place it in `edge_client/assets/` and update `VIDEO=` in `config.env`.
+6. **On your friend's laptop, double-click `edge_client/START.bat`**:
+   Their bus will instantly appear on your Command Center map at `http://localhost:5173`!
 
 ---
 
